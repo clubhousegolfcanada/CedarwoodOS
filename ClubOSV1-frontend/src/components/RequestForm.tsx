@@ -730,13 +730,16 @@ const RequestForm: React.FC = () => {
             <button
               type="button"
               onClick={() => {
-                setIsKnowledgeMode(true);
-                setIsTicketMode(false);
-                // Keep smartAssistEnabled as is (don't change the toggle)
+                setIsKnowledgeMode(!isKnowledgeMode);
+                if (!isKnowledgeMode) {
+                  setIsTicketMode(false);
+                }
               }}
               className={`px-4 py-1.5 text-xs font-medium rounded-full transition-all transform hover:scale-105
-                bg-[var(--bg-tertiary)] text-[var(--text-secondary)] border border-[var(--border-secondary)]
-                hover:border-[#4A154B]/50 hover:bg-[#4A154B]/10 hover:text-[#4A154B]`}
+                ${isKnowledgeMode
+                  ? 'bg-yellow-500/20 text-yellow-600 border border-yellow-500/50 hover:bg-yellow-500/30'
+                  : 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)] border border-[var(--border-secondary)] hover:border-[#4A154B]/50 hover:bg-[#4A154B]/10 hover:text-[#4A154B]'
+                }`}
               disabled={isSubmitting || demoMode}
             >
               {isKnowledgeMode ? '✓ Update Mode' : '+ Update'}
