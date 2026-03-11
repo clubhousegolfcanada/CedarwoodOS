@@ -624,10 +624,6 @@ async function startServer() {
     await initializeSystemConfigs();
     logger.info('✅ System configurations initialized');
     
-    // Start customer name sync service
-    const { customerNameSyncService } = await import('./services/syncCustomerNames');
-    customerNameSyncService.start();
-    logger.info('✅ Customer name sync service started');
     
     // Start token cleanup job
     const { tokenCleanupJob } = await import('./jobs/tokenCleanup');
