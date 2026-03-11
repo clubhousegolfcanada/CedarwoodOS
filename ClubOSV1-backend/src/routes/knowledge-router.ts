@@ -12,30 +12,26 @@ import { db } from '../utils/database';
 const router = Router();
 
 /**
- * Test endpoint to check OpenAI configuration (PUBLIC)
+ * Test endpoint to check OpenAI configuration (admin only)
  */
 router.get('/test-config',
+  authenticate,
+  roleGuard(['admin']),
   asyncHandler(async (req, res) => {
     const hasApiKey = !!process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== 'sk-demo-key-not-for-production';
-    const keyPrefix = process.env.OPENAI_API_KEY ? process.env.OPENAI_API_KEY.substring(0, 7) + '...' : 'NOT SET';
-    
+
     res.json({
       success: true,
       config: {
         hasOpenAIKey: hasApiKey,
-        keyPrefix,
         assistantIds: {
-          emergency: process.env.EMERGENCY_GPT_ID || 'NOT SET',
-          booking: process.env.BOOKING_ACCESS_GPT_ID || 'NOT SET',
-          tech: process.env.TECH_SUPPORT_GPT_ID || 'NOT SET',
-          brand: process.env.BRAND_MARKETING_GPT_ID || 'NOT SET'
+          emergency: process.env.EMERGENCY_GPT_ID ? 'configured' : 'NOT SET',
+          booking: process.env.BOOKING_ACCESS_GPT_ID ? 'configured' : 'NOT SET',
+          tech: process.env.TECH_SUPPORT_GPT_ID ? 'configured' : 'NOT SET',
+          brand: process.env.BRAND_MARKETING_GPT_ID ? 'configured' : 'NOT SET'
         },
         database: {
-          initialized: db.initialized,
-          tables: {
-            knowledge_audit_log: 'required',
-            assistant_knowledge: 'required'
-          }
+          initialized: db.initialized
         }
       }
     });

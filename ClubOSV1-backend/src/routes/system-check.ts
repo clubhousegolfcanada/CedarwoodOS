@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { authenticate } from '../middleware/auth';
+import { adminOrOperator } from '../middleware/roleGuard';
 import { logger } from '../utils/logger';
 import { db } from '../utils/database';
 import { semanticSearch } from '../services/semanticSearch';
@@ -8,14 +9,13 @@ import { semanticSearch } from '../services/semanticSearch';
 const router = Router();
 
 // Simple system check endpoint
-router.get('/check', authenticate, async (req: Request, res: Response) => {
+router.get('/check', authenticate, adminOrOperator, async (req: Request, res: Response) => {
   try {
     const checks = {
       timestamp: new Date().toISOString(),
       environment: process.env.NODE_ENV,
       configuration: {
         openaiConfigured: !!process.env.OPENAI_API_KEY,
-        openaiKeyPrefix: process.env.OPENAI_API_KEY ? process.env.OPENAI_API_KEY.substring(0, 7) + '...' : 'NOT SET',
         useIntelligentSOP: process.env.USE_INTELLIGENT_SOP === 'true',
         sopShadowMode: process.env.SOP_SHADOW_MODE === 'true',
         sopConfidenceThreshold: process.env.SOP_CONFIDENCE_THRESHOLD || '0.75'

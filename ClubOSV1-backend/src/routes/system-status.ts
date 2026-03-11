@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { authenticate } from '../middleware/auth';
+import { adminOrOperator } from '../middleware/roleGuard';
 import { logger } from '../utils/logger';
 import { db } from '../utils/database';
 import { pool } from '../utils/db';
@@ -7,7 +8,7 @@ import { pool } from '../utils/db';
 const router = Router();
 
 // Get comprehensive system status
-router.get('/all', authenticate, async (req: Request, res: Response) => {
+router.get('/all', authenticate, adminOrOperator, async (req: Request, res: Response) => {
   try {
     const status: any = {
       timestamp: new Date().toISOString(),
@@ -140,7 +141,7 @@ router.get('/health', async (req: Request, res: Response) => {
 });
 
 // Get specific service status
-router.get('/:service', authenticate, async (req: Request, res: Response) => {
+router.get('/:service', authenticate, adminOrOperator, async (req: Request, res: Response) => {
   try {
     const { service } = req.params;
     let serviceStatus: any = {};
@@ -178,12 +179,10 @@ router.get('/:service', authenticate, async (req: Request, res: Response) => {
           mode: process.env.UNIFI_USE_REMOTE_ACCESS === 'true' ? 'cloud-proxy' : 'direct',
           locations: {
             dartmouth: {
-              configured: !!process.env.DARTMOUTH_ACCESS_TOKEN,
-              ip: process.env.DARTMOUTH_CONTROLLER_IP
+              configured: !!process.env.DARTMOUTH_ACCESS_TOKEN
             },
             bedford: {
-              configured: !!process.env.BEDFORD_ACCESS_TOKEN,
-              ip: process.env.BEDFORD_CONTROLLER_IP
+              configured: !!process.env.BEDFORD_ACCESS_TOKEN
             }
           }
         };

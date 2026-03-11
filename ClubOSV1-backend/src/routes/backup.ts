@@ -5,6 +5,7 @@ import { db } from '../utils/database';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs/promises';
+import { createReadStream } from 'fs';
 import path from 'path';
 
 const router = Router();
@@ -75,16 +76,19 @@ router.get('/export', authenticate, authorize(['admin']), async (req, res) => {
       return res.send(JSON.stringify(backup, null, 2));
     }
     
-    // Read the backup file
-    const backupData = await fs.readFile(tempPath, 'utf-8');
-    
-    // Clean up temp file
-    await fs.unlink(tempPath).catch(() => {});
-    
-    // Send backup
+    // Stream the backup file instead of loading into memory
     res.setHeader('Content-Type', 'application/sql');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.send(backupData);
+
+    const stream = createReadStream(tempPath);
+    stream.pipe(res);
+    stream.on('end', () => {
+      fs.unlink(tempPath).catch(() => {});
+    });
+    stream.on('error', (err) => {
+      fs.unlink(tempPath).catch(() => {});
+      throw err;
+    });
     
     logger.info('Database backup exported', {
       exportedBy: req.user!.email,

@@ -168,33 +168,7 @@ app.use(sanitizeMiddleware);
 app.use(requestLogger);
 app.use(performanceLogger);
 
-// Handle preflight requests explicitly
-app.options('*', cors(corsOptions));
-
-// Ensure CORS headers are added even on errors
-app.use((req: any, res: any, next: any) => {
-  // Set CORS headers on all responses
-  const origin = req.headers.origin;
-  if (origin) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, x-csrf-token');
-  }
-  
-  // Intercept response to ensure headers are always set
-  const oldSend = res.send;
-  res.send = function(data: any) {
-    // Ensure CORS headers are set even if response was already started
-    if (origin && !res.headersSent) {
-      res.setHeader('Access-Control-Allow-Origin', origin);
-      res.setHeader('Access-Control-Allow-Credentials', 'true');
-    }
-    return oldSend.apply(res, arguments);
-  };
-  
-  next();
-});
+// CORS is handled by the cors() middleware above — no manual header override needed
 
 // Rate limiting
 app.use('/api/', rateLimiter);

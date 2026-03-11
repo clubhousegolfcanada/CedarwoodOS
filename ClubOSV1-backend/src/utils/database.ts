@@ -785,20 +785,15 @@ class DatabaseService {
         role: 'admin'
       });
 
-      logger.info('Default admin user created');
-      logger.info('==================================================');
-      logger.info('ADMIN CREDENTIALS:');
-      logger.info(`Email: admin@cedarwood.com`);
-      logger.info(`Password: ${randomPassword}`);
-      logger.info('IMPORTANT: Save this password and change it after first login!');
-      logger.info('==================================================');
-
-      // Also write to a secure file that should be deleted after reading
-      const fs = require('fs');
-      const path = require('path');
-      const credFile = path.join(process.cwd(), 'admin-credentials.txt');
-      fs.writeFileSync(credFile, `CedarwoodOS Admin Credentials\n========================\nEmail: admin@cedarwood.com\nPassword: ${randomPassword}\n\nIMPORTANT: Delete this file after saving the password!\n`);
-      logger.info(`Admin credentials also written to: ${credFile}`);
+      logger.info('Default admin user created (admin@cedarwood.com). Password set via ADMIN_DEFAULT_PASSWORD env var or check Railway logs for one-time display.');
+      // Log password ONCE to stdout only (not to persistent log files)
+      // This is visible in Railway deploy logs but not stored long-term
+      console.log('==================================================');
+      console.log('CEDARWOODOS ADMIN CREDENTIALS (one-time display):');
+      console.log(`Email: admin@cedarwood.com`);
+      console.log(`Password: ${randomPassword}`);
+      console.log('Change this password immediately after first login.');
+      console.log('==================================================');
     }
   }
 

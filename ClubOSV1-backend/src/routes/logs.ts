@@ -1,15 +1,24 @@
 import { Router, Request, Response } from 'express';
+import rateLimit from 'express-rate-limit';
 import { db } from '../utils/database';
 import { logger } from '../utils/logger';
 import { authenticate } from '../middleware/auth';
 
 const router = Router();
 
+const logRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  message: 'Too many log requests. Please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
 /**
  * POST /api/logs/frontend
  * Log frontend errors and events
  */
-router.post('/frontend', async (req: Request, res: Response) => {
+router.post('/frontend', authenticate, logRateLimiter, async (req: Request, res: Response) => {
   try {
     const { level, message, context } = req.body;
     const userId = (req as any).user?.id || null;

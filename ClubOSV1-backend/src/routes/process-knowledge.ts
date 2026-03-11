@@ -2,14 +2,25 @@ import { Router } from 'express';
 import { logger } from '../utils/logger';
 import { db } from '../utils/database';
 import { getOpenAIClient } from '../utils/openaiClient';
+import { authenticate } from '../middleware/auth';
+import { adminOrOperator } from '../middleware/roleGuard';
+import rateLimit from 'express-rate-limit';
 
 const router = Router();
+
+const processRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  message: 'Too many processing requests. Please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false
+});
 
 /**
  * Public endpoint to trigger knowledge processing
  * GET /api/process-knowledge/status
  */
-router.get('/status', async (req, res) => {
+router.get('/status', authenticate, adminOrOperator, async (req, res) => {
   try {
     const stats = await db.query(`
       SELECT 
@@ -36,14 +47,9 @@ router.get('/status', async (req, res) => {
  * Process conversations for knowledge extraction
  * POST /api/process-knowledge/conversations
  */
-router.post('/conversations', async (req, res) => {
+router.post('/conversations', authenticate, adminOrOperator, processRateLimiter, async (req, res) => {
   try {
-    const { secret, limit = 5 } = req.body;
-    
-    // Simple secret check for production use
-    if (secret !== process.env.ADMIN_SECRET && secret !== 'process-knowledge-2025') {
-      return res.status(401).json({ error: 'Invalid secret' });
-    }
+    const { limit = 5 } = req.body;
 
     const openai = getOpenAIClient();
     if (!openai) {

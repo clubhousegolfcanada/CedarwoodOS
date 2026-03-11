@@ -14,9 +14,27 @@ import multer from 'multer';
 import { parseUploadedFile } from '../services/knowledgeParser';
 
 const router = Router();
-const upload = multer({ 
+const ALLOWED_MIMETYPES = new Set([
+  'text/plain',
+  'text/markdown',
+  'application/json',
+  'text/csv',
+  'application/pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+]);
+
+const ALLOWED_EXTENSIONS = /\.(txt|md|json|csv|pdf|docx)$/i;
+
+const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  fileFilter: (_req, file, cb) => {
+    if (ALLOWED_MIMETYPES.has(file.mimetype) || ALLOWED_EXTENSIONS.test(file.originalname)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`File type not allowed. Accepted: .txt, .md, .json, .csv, .pdf, .docx`));
+    }
+  }
 });
 
 // All routes require authentication
