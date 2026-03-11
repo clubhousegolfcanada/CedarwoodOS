@@ -17,7 +17,7 @@ export interface CreateMediaInput {
   fileName: string;
   mimeType: string;
   fileSize: number;
-  userId: string;
+  userId: string | null;
   userName: string;
   location?: string | null;
 }

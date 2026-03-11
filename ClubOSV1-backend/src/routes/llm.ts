@@ -171,10 +171,10 @@ router.post('/request',
       // Check if this is a media upload (has attachments)
       const hasMediaAttachments = req.body.mediaAttachments && req.body.mediaAttachments.length > 0;
 
-      // Check if this is a media recall query
+      // Knowledge recall: EVERY query searches the knowledge base first
+      // CedarwoodOS is an intelligence engine — any request could be retrieving stored knowledge
       const descLower = req.body.requestDescription?.toLowerCase() || '';
-      const isMediaQuery = !hasMediaAttachments && !isReceiptOCR && !isReceiptQuery &&
-        /\b(photo|picture|image|show me|find the|uploaded|attachment|file from|pdf from|media)\b/i.test(descLower);
+      const isMediaQuery = !hasMediaAttachments && !isReceiptOCR && !isReceiptQuery && descLower.length > 2;
 
       // Debug logging
       logger.info('Request processing debug', {
@@ -207,7 +207,7 @@ router.post('/request',
               fileName: attachment.fileName || attachment.name || 'upload',
               mimeType: attachment.mimeType || attachment.type || 'image/jpeg',
               fileSize: buffer.length,
-              userId: (req as any).user?.id || 'unknown',
+              userId: (req as any).user?.id || null,
               userName: (req as any).user?.name || (req as any).user?.email || 'Operator',
               location: req.body.location || null,
             });
@@ -244,7 +244,9 @@ router.post('/request',
         }
       }
 
-      // ─── Handle media recall query ──────────────────────────────────────
+      // ─── Knowledge Base Search (always runs first) ────────────────────────
+      // CedarwoodOS intelligence engine: every query searches the knowledge base.
+      // Only return results if similarity is meaningful (>= 0.3), otherwise fall through to LLM.
       if (isMediaQuery && req.body.smartAssistEnabled) {
         try {
           const { mediaSearchService } = await import('../services/mediaSearchService');
@@ -253,32 +255,33 @@ router.post('/request',
             { location: req.body.location, limit: 10 }
           );
 
-          if (mediaResults.length > 0) {
-            // Build context summary for the LLM
-            const mediaContext = mediaResults.slice(0, 3).map(r =>
-              `[Media: ${r.ai_description || r.user_description || r.file_name}, ` +
-              `uploaded by ${r.uploader_name} on ${new Date(r.created_at).toLocaleDateString()}, ` +
-              `location: ${r.location || 'unknown'}]`
-            ).join('\n');
+          // Only return knowledge results if we have a meaningful match
+          const strongResults = mediaResults.filter(r => r.similarity >= 0.3 && !r.isPartialMatch);
 
-            const responseText = mediaResults.some(r => r.isPartialMatch)
-              ? `I found some related content in the knowledge base:\n\n${mediaContext}`
-              : `Here's what I found:\n\n${mediaContext}`;
+          if (strongResults.length > 0) {
+            const mediaContext = strongResults.slice(0, 5).map(r =>
+              `**${r.ai_description || r.user_description || r.file_name}**\n` +
+              `Uploaded by ${r.uploader_name} on ${new Date(r.created_at).toLocaleDateString()}` +
+              (r.location ? ` | Location: ${r.location}` : '') +
+              (r.category ? ` | Category: ${r.category}` : '')
+            ).join('\n\n');
 
-            logger.info(`[LLM] Media recall: ${mediaResults.length} results for "${req.body.requestDescription?.substring(0, 50)}"`);
+            const responseText = `Found ${strongResults.length} result${strongResults.length > 1 ? 's' : ''} in the knowledge base:\n\n${mediaContext}`;
+
+            logger.info(`[LLM] Knowledge recall: ${strongResults.length} results (top similarity: ${strongResults[0].similarity.toFixed(2)}) for "${req.body.requestDescription?.substring(0, 50)}"`);
 
             return res.json({
               success: true,
               data: {
                 requestId,
                 status: 'completed',
-                botRoute: 'Media Search',
+                botRoute: 'Knowledge Search',
                 llmResponse: {
-                  route: 'Media Search',
+                  route: 'Knowledge Search',
                   response: responseText,
-                  confidence: mediaResults[0]?.similarity || 0.7,
+                  confidence: strongResults[0]?.similarity || 0.7,
                   dataSource: 'MEDIA_KNOWLEDGE_ENGINE',
-                  mediaResults: mediaResults.map(r => ({
+                  mediaResults: strongResults.map(r => ({
                     id: r.id,
                     thumbnail_data: r.thumbnail_data,
                     file_name: r.file_name,
@@ -297,9 +300,13 @@ router.post('/request',
               },
             });
           }
-          // If no media results, fall through to normal LLM processing
+
+          // Log that we searched but found nothing relevant — fall through to LLM
+          if (mediaResults.length > 0) {
+            logger.info(`[LLM] Knowledge search: ${mediaResults.length} results but none above threshold (top: ${mediaResults[0].similarity.toFixed(2)}), falling through to LLM`);
+          }
         } catch (mediaError: any) {
-          logger.error('[LLM] Media search failed, falling through to LLM:', mediaError);
+          logger.error('[LLM] Knowledge search failed, falling through to LLM:', mediaError);
           // Fall through to normal processing
         }
       }
