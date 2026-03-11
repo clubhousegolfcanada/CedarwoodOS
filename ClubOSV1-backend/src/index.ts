@@ -29,16 +29,11 @@ if (process.env.NODE_ENV !== 'test') {
 }
 import authRoutes from './routes/auth';
 import authGoogleRoutes from './routes/auth-google';
-import bookingsRoutes from './routes/bookings';
-import bookingConfigRoutes from './routes/bookingConfig';
 import ticketsRoutes from './routes/tickets';
 import tasksRoutes from './routes/tasks';
 import feedbackRoutes from './routes/feedback';
 import llmRoutes from './routes/llm';
 import slackRoutes from './routes/slack';
-import customerRoutes from './routes/customer';
-import customerProfileRoutes from './routes/customerProfile';
-import customerBookingsRoutes from './routes/customerBookings';
 import userSettingsRoutes from './routes/userSettings';
 import backupRoutes from './routes/backup';
 import accessRoutes from './routes/access';
@@ -68,10 +63,7 @@ import integrationsRoutes from './routes/integrations';
 import enhancedPatternsRouter from './routes/enhanced-patterns';
 import whiteLabelPlannerRoutes from './routes/white-label-planner';
 import whiteLabelScannerRoutes from './routes/white-label-scanner';
-import boxesRoutes from './routes/boxes';
-import boxManagementRoutes from './routes/boxManagement';
 import processKnowledgeRoutes from './routes/process-knowledge';
-import friendsRoutes from './routes/friends';
 import logsRoutes from './routes/logs';
 import checklistsPeopleRoutes from './routes/checklists-people';
 
@@ -244,43 +236,23 @@ app.get('/api/version', (req, res) => {
 });
 
 app.use('/api', csrfRoutes);
-app.use('/api/bookings', bookingsRoutes);
-app.use('/api/booking/locations', require('./routes/booking/locations').default);
 app.use('/api/tickets', ticketsRoutes);
 app.use('/api/receipts', require('./routes/receipts-simple').default);
 app.use('/api/tasks', tasksRoutes);
 app.use('/api/feedback', feedbackRoutes);
 app.use('/api/llm', llmRateLimiter, trackUsage, llmRoutes);
 app.use('/api/slack', slackRoutes);
-// Legacy customer routes (if any)
-// app.use('/api/customer', customerRoutes);
-
-// New Clubhouse customer app API v2
-app.use('/api/v2/customer', customerRoutes);
-app.use('/api/customer-profile', customerProfileRoutes);
-app.use('/api/profile', require('./routes/profileStats').default);
-app.use('/api/customer-bookings', customerBookingsRoutes);
-app.use('/api/friends', friendsRoutes);
-app.use('/api/challenges', require('./routes/challenges').default);
-app.use('/api/boxes', boxesRoutes);
-app.use('/api/boxes', boxManagementRoutes); // Management endpoints
-app.use('/api/leaderboard', require('./routes/leaderboard').default);
-app.use('/api/seasons', require('./routes/seasons').default);
-app.use('/api/badges', require('./routes/badges').default);
-app.use('/api/achievements', require('./routes/achievements').default);
-app.use('/api/admin/cc-adjustments', require('./routes/admin/ccAdjustments').default);
 app.use('/api/admin/contractors', require('./routes/admin/contractors').default);
 app.use('/api/admin/performance', require('./routes/performance-monitor').default);
 app.use('/api/user-settings', userSettingsRoutes);
 app.use('/api/backup', backupRoutes);
 app.use('/api/access', accessRoutes);
 app.use('/api/history', historyRoutes);
-// app.use('/api/test-cors', testCorsRoutes); // Removed during cleanup
 app.use('/api/system-config', systemConfigRoutes);
 app.use('/api/analytics', analyticsRoutes);
-app.use('/api/checklists', checklistsRoutes); // Keep old path for backward compatibility
-app.use('/api/checklists-v2', checklistsRoutes); // New path for v2 frontend
-app.use('/api/checklists-people', checklistsPeopleRoutes); // People category - weekly task management
+app.use('/api/checklists', checklistsRoutes);
+app.use('/api/checklists-v2', checklistsRoutes);
+app.use('/api/checklists-people', checklistsPeopleRoutes);
 // app.use('/api/debug', debugRoutes); // File doesn't exist
 app.use('/api/contacts', require('./routes/contacts').default);
 app.use('/api/messages', messagesRoutes);
@@ -324,7 +296,6 @@ app.use('/api/white-label-planner', whiteLabelPlannerRoutes);
 app.use('/api/white-label-scanner', whiteLabelScannerRoutes);
 app.use('/api/system-status', require('./routes/system-status').default);
 app.use('/api/system-settings', require('./routes/systemSettings').default);
-app.use('/api/settings', bookingConfigRoutes);
 app.use('/api/logs', logsRoutes);
 app.use('/api/process-knowledge', processKnowledgeRoutes);
 
@@ -388,10 +359,6 @@ async function startServer() {
     
     // Run critical migrations
     try {
-      // Fix missing rank_tier column
-      const { runRankTierMigration } = await import('./scripts/run-rank-tier-migration');
-      await runRankTierMigration();
-      
       // Fix contractor role constraint
       try {
         logger.info('Checking contractor role constraint...');
@@ -662,31 +629,6 @@ async function startServer() {
     customerNameSyncService.start();
     logger.info('✅ Customer name sync service started');
     
-    // Start challenge expiry job
-    const challengeExpiryJob = await import('./jobs/challengeExpiry');
-    challengeExpiryJob.default.start();
-    logger.info('✅ Challenge expiry job started');
-    
-    // Start rank calculation job
-    const rankCalculationJob = await import('./jobs/rankCalculation');
-    rankCalculationJob.default.start();
-    logger.info('✅ Rank calculation job started');
-    
-    // Start seasonal reset job
-    const seasonalResetJob = await import('./jobs/seasonalReset');
-    seasonalResetJob.default.start();
-    logger.info('✅ Seasonal reset job started');
-    
-    // Start challenge agreement processor
-    const { startChallengeAgreementProcessor } = await import('./jobs/challengeAgreementProcessor');
-    startChallengeAgreementProcessor();
-    logger.info('✅ Challenge agreement processor started');
-    
-    // Start booking rewards job
-    const { startBookingRewardsJob } = await import('./jobs/bookingRewards');
-    startBookingRewardsJob();
-    logger.info('✅ Booking rewards job started');
-
     // Start token cleanup job
     const { tokenCleanupJob } = await import('./jobs/tokenCleanup');
     tokenCleanupJob.start();
