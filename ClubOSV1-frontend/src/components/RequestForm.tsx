@@ -780,8 +780,8 @@ const RequestForm: React.FC = () => {
             )}
           </div>
 
-          {/* CedarwoodOS Media Upload Zone — shown in default PROCESS mode */}
-          {!isTicketMode && !isKnowledgeMode && !isReceiptMode && smartAssistEnabled && (
+          {/* CedarwoodOS Media Upload Zone — shown in Update (knowledge) mode for adding photos to database */}
+          {isKnowledgeMode && (
             <div className="mb-3 -mt-2">
               <MediaUploadZone
                 attachments={mediaAttachments}

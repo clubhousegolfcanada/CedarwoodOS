@@ -109,9 +109,7 @@ const Navigation: React.FC<NavigationProps> = ({ unreadMessages = 0 }) => {
     : [
         // All other roles see the full navigation
         { href: '/', label: 'Dashboard', roles: ['admin', 'operator', 'support'] as UserRole[] },
-        { href: '/messages', label: 'Messages', roles: ['admin', 'operator', 'support'] as UserRole[] },
         { href: '/tickets', label: 'Tickets', roles: ['admin', 'operator'] as UserRole[] },
-        { href: '/checklists', label: 'Checklists', roles: ['admin', 'operator', 'support'] as UserRole[] },
         { href: '/operations', label: 'Operations', roles: ['admin', 'operator'] as UserRole[] },
       ].filter(item => hasAnyRole(user?.role, item.roles));
 

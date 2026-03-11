@@ -422,9 +422,11 @@ const DatabaseExternalTools: React.FC<DatabaseExternalToolsProps> = ({ quickStat
           </div>
         )}
         
-        {/* Divider */}
-        <div className="border-t border-[var(--border-secondary)]"></div>
-        
+        {/* Divider - only show if stats section is visible */}
+        {quickStats && quickStats.length > 0 && (
+          <div className="border-t border-[var(--border-secondary)]"></div>
+        )}
+
         {/* External Tools Section */}
         <div>
           <button
