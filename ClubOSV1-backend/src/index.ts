@@ -46,11 +46,6 @@ import historyRoutes from './routes/history';
 import systemConfigRoutes from './routes/system-config';
 import analyticsRoutes from './routes/analytics';
 import checklistsRoutes from './routes/checklists-v2-enhanced';
-import remoteActionsRoutes from './routes/remoteActions';
-import ninjaoneSyncRoutes from './routes/ninjaone-sync';
-import doorAccessRoutes from './routes/doorAccess';
-import openphoneRoutes from './routes/openphone';
-import openphoneV3Routes from './routes/openphone-v3';
 import messagesRoutes from './routes/messages';
 import notificationsRoutes from './routes/notifications';
 import knowledgeRoutes from './routes/knowledge';
@@ -63,17 +58,14 @@ import correctionsRoutes from './routes/corrections';
 import debugKnowledgeRoutes from './routes/debug-knowledge';
 import adminRoutes from './routes/admin';
 import publicRoutes from './routes/public';
-import callTranscriptRoutes from './routes/call-transcripts';
 import privacyRoutes from './routes/privacy';
 import customerInteractionsRoutes from './routes/customer-interactions';
 import promptTemplatesRoutes from './routes/promptTemplates';
 import promptsRoutes from './routes/prompts';
 import csrfRoutes from './routes/csrf';
 import aiAutomationsRoutes from './routes/ai-automations';
-import openphoneProcessingRoutes from './routes/openphone-processing';
 import integrationsRoutes from './routes/integrations';
 import enhancedPatternsRouter from './routes/enhanced-patterns';
-import unifiDoorsRoutes from './routes/unifi-doors';
 import whiteLabelPlannerRoutes from './routes/white-label-planner';
 import whiteLabelScannerRoutes from './routes/white-label-scanner';
 import boxesRoutes from './routes/boxes';
@@ -81,10 +73,7 @@ import boxManagementRoutes from './routes/boxManagement';
 import processKnowledgeRoutes from './routes/process-knowledge';
 import friendsRoutes from './routes/friends';
 import logsRoutes from './routes/logs';
-import golfTourRoutes from './routes/golf-tour';
-import hubspotBookingWebhook from './routes/webhooks/hubspotBookings';
 import checklistsPeopleRoutes from './routes/checklists-people';
-import gmailScanRoutes from './routes/gmail-scan';
 
 import { requestLogger } from './middleware/requestLogger';
 import { errorHandler } from './middleware/errorHandler';
@@ -184,28 +173,6 @@ app.use('/api/slack/events', express.raw({ type: 'application/json' }), (req, re
   next();
 });
 
-// Custom middleware to capture raw body for OpenPhone signature verification
-app.use('/api/openphone/webhook', express.raw({ type: 'application/json' }), (req, res, next) => {
-  // Skip raw body processing for GET requests
-  if (req.method === 'GET') {
-    return next();
-  }
-
-  // For POST requests, capture raw body
-  if (req.body && Buffer.isBuffer(req.body)) {
-    req.rawBody = req.body;
-    req.body = JSON.parse(req.body.toString());
-  }
-  next();
-});
-
-// Also handle OpenPhone v3 webhook
-app.use('/api/openphone-v3/webhook-v3', express.raw({ type: 'application/json' }), (req, res, next) => {
-  req.rawBody = req.body;
-  req.body = JSON.parse(req.body.toString());
-  next();
-});
-
 app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
 app.use(sanitizeMiddleware);
@@ -279,7 +246,6 @@ app.get('/api/version', (req, res) => {
 app.use('/api', csrfRoutes);
 app.use('/api/bookings', bookingsRoutes);
 app.use('/api/booking/locations', require('./routes/booking/locations').default);
-app.use('/api/hubspot', require('./routes/hubspot').default);
 app.use('/api/tickets', ticketsRoutes);
 app.use('/api/receipts', require('./routes/receipts-simple').default);
 app.use('/api/tasks', tasksRoutes);
@@ -302,8 +268,6 @@ app.use('/api/leaderboard', require('./routes/leaderboard').default);
 app.use('/api/seasons', require('./routes/seasons').default);
 app.use('/api/badges', require('./routes/badges').default);
 app.use('/api/achievements', require('./routes/achievements').default);
-app.use('/api/trackman', require('./routes/trackman').default);
-app.use('/api/golf', golfTourRoutes); // NS Senior Golf Tour scoring system
 app.use('/api/admin/cc-adjustments', require('./routes/admin/ccAdjustments').default);
 app.use('/api/admin/contractors', require('./routes/admin/contractors').default);
 app.use('/api/admin/performance', require('./routes/performance-monitor').default);
@@ -317,14 +281,7 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/checklists', checklistsRoutes); // Keep old path for backward compatibility
 app.use('/api/checklists-v2', checklistsRoutes); // New path for v2 frontend
 app.use('/api/checklists-people', checklistsPeopleRoutes); // People category - weekly task management
-app.use('/api/remote-actions', remoteActionsRoutes);
-app.use('/api/door-access', doorAccessRoutes);
-app.use('/api/ninjaone-remote', require('./routes/ninjaone-remote').default);
-app.use('/api/ninjaone', ninjaoneSyncRoutes);
 // app.use('/api/debug', debugRoutes); // File doesn't exist
-app.use('/api/openphone', openphoneRoutes);
-app.use('/api/openphone-v3', openphoneV3Routes);
-app.use('/api/openphone-processing', openphoneProcessingRoutes);
 app.use('/api/contacts', require('./routes/contacts').default);
 app.use('/api/messages', messagesRoutes);
 app.use('/api/notifications', notificationsRoutes);
@@ -355,7 +312,6 @@ app.use('/api/admin', adminRoutes);
 
 // Performance monitoring endpoint (admin only)
 app.get('/api/admin/performance', authenticate, roleGuard(['admin']), getPerformanceStats);
-app.use('/api/call-transcripts', callTranscriptRoutes);
 app.use('/api/privacy', privacyRoutes);
 app.use('/api/customer-interactions', customerInteractionsRoutes);
 app.use('/api/prompt-templates', promptTemplatesRoutes);
@@ -364,7 +320,6 @@ app.use('/api/ai-automations', aiAutomationsRoutes);
 app.use('/api/integrations', integrationsRoutes);
 // Use consolidated enhanced patterns route for all pattern endpoints
 app.use('/api/patterns', enhancedPatternsRouter);
-app.use('/api/unifi-doors', unifiDoorsRoutes);
 app.use('/api/white-label-planner', whiteLabelPlannerRoutes);
 app.use('/api/white-label-scanner', whiteLabelScannerRoutes);
 app.use('/api/system-status', require('./routes/system-status').default);
@@ -380,11 +335,6 @@ app.use('/api/process-knowledge', processKnowledgeRoutes);
 // app.use('/api/v2/auth', authRefactoredRoutes);
 // app.use('/api/v2/users', usersRefactoredRoutes);
 
-// HubSpot webhook routes
-app.use('/api/webhooks/hubspot', hubspotBookingWebhook);
-
-// Gmail receipt scanning
-app.use('/api/gmail', gmailScanRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -742,10 +692,6 @@ async function startServer() {
     tokenCleanupJob.start();
     logger.info('✅ Token cleanup job started');
 
-    // Start Gmail receipt scan job (daily at 6 AM Atlantic, gated by GMAIL_SCAN_ENABLED)
-    const gmailScanJob = await import('./jobs/gmailScan');
-    gmailScanJob.default.start();
-    
     // SOP module disabled - using OpenAI Assistants directly
     logger.info('✅ Using OpenAI Assistants for AI responses');
     
@@ -940,7 +886,6 @@ async function startServer() {
           id INTEGER PRIMARY KEY DEFAULT 1,
           gift_card_inquiries BOOLEAN DEFAULT true,
           llm_initial_analysis BOOLEAN DEFAULT true,
-          trackman_reset BOOLEAN DEFAULT false,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
@@ -955,25 +900,6 @@ async function startServer() {
       }
     }
     
-    // Add updated_at column to openphone_conversations if missing
-    try {
-      logger.info('Checking openphone_conversations columns...');
-      await db.query(`
-        ALTER TABLE openphone_conversations
-        ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW()
-      `);
-      
-      // Update existing rows
-      await db.query(`
-        UPDATE openphone_conversations
-        SET updated_at = COALESCE(created_at, NOW())
-        WHERE updated_at IS NULL
-      `);
-      
-      logger.info('✅ OpenPhone updated_at column verified');
-    } catch (error) {
-      logger.error('Failed to add updated_at column:', error);
-    }
     
     // Run other migrations
     try {
