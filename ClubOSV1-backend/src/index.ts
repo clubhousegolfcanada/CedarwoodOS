@@ -727,7 +727,7 @@ async function startServer() {
         CREATE TABLE IF NOT EXISTS blacklisted_tokens (
           id SERIAL PRIMARY KEY,
           token_hash VARCHAR(255) NOT NULL UNIQUE,
-          user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+          user_id UUID REFERENCES users(id) ON DELETE CASCADE,
           session_id VARCHAR(255),
           expires_at TIMESTAMP NOT NULL,
           blacklisted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
