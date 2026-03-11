@@ -61,15 +61,18 @@ const MediaUploadZone: React.FC<MediaUploadZoneProps> = ({
       });
     }
 
-    // PNGs and SVGs: send original file (preserve quality + transparency)
-    const isLossless = file.type === 'image/png' || file.type === 'image/svg+xml';
-    if (isLossless) {
+    // Standard image formats (PNG, SVG, JPEG, WebP): send original file as-is
+    // This preserves exact resolution, quality, transparency, and metadata.
+    // The backend handles EXIF stripping for privacy on photos.
+    const needsCanvasConversion = file.type === 'image/heic' || file.type === 'image/heif';
+
+    if (!needsCanvasConversion) {
       return new Promise((resolve) => {
         const reader = new FileReader();
         reader.onload = () => {
           const dataUrl = reader.result as string;
           if (dataUrl.length > MAX_COMPRESSED_SIZE * 2) {
-            resolve(null); // File too large
+            resolve(null); // File too large even at original size
             return;
           }
           resolve({
@@ -83,7 +86,7 @@ const MediaUploadZone: React.FC<MediaUploadZoneProps> = ({
       });
     }
 
-    // Photos (JPEG/WebP/HEIC): resize if needed, compress via canvas
+    // HEIC only: must convert via canvas (browsers can't encode HEIC)
     return new Promise((resolve) => {
       const img = new window.Image();
       const objectUrl = URL.createObjectURL(file);
@@ -91,10 +94,8 @@ const MediaUploadZone: React.FC<MediaUploadZoneProps> = ({
       img.onload = () => {
         URL.revokeObjectURL(objectUrl);
 
-        // Calculate dimensions (max longest side)
         let { width, height } = img;
-        const needsResize = width > MAX_DIMENSION || height > MAX_DIMENSION;
-        if (needsResize) {
+        if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
           if (width > height) {
             height = Math.round((height / width) * MAX_DIMENSION);
             width = MAX_DIMENSION;
@@ -104,47 +105,24 @@ const MediaUploadZone: React.FC<MediaUploadZoneProps> = ({
           }
         }
 
-        // Draw to canvas — needed for HEIC conversion and resize
         const canvas = document.createElement('canvas');
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          resolve(null);
-          return;
-        }
+        if (!ctx) { resolve(null); return; }
         ctx.drawImage(img, 0, 0, width, height);
 
-        // Use high quality (0.92) to preserve detail
         const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
-
         if (dataUrl.length > MAX_COMPRESSED_SIZE) {
-          // Try moderate quality
           const mqDataUrl = canvas.toDataURL('image/jpeg', 0.75);
-          if (mqDataUrl.length > MAX_COMPRESSED_SIZE) {
-            resolve(null);
-            return;
-          }
-          resolve({
-            data: mqDataUrl,
-            fileName: file.name.replace(/\.[^.]+$/, '.jpg'),
-            mimeType: 'image/jpeg',
-          });
+          if (mqDataUrl.length > MAX_COMPRESSED_SIZE) { resolve(null); return; }
+          resolve({ data: mqDataUrl, fileName: file.name.replace(/\.[^.]+$/, '.jpg'), mimeType: 'image/jpeg' });
           return;
         }
-
-        resolve({
-          data: dataUrl,
-          fileName: file.name.replace(/\.[^.]+$/, '.jpg'),
-          mimeType: 'image/jpeg',
-        });
+        resolve({ data: dataUrl, fileName: file.name.replace(/\.[^.]+$/, '.jpg'), mimeType: 'image/jpeg' });
       };
 
-      img.onerror = () => {
-        URL.revokeObjectURL(objectUrl);
-        resolve(null);
-      };
-
+      img.onerror = () => { URL.revokeObjectURL(objectUrl); resolve(null); };
       img.src = objectUrl;
     });
   }, []);
