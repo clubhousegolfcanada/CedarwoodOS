@@ -23,9 +23,9 @@ export default function Document() {
         {/* Icons */}
         <link rel="icon" href="/favicon.ico" />
         <link rel="manifest" href="/manifest.json" />
-        <link rel="apple-touch-icon" href="/clubos-icon-192.png" />
-        <link rel="apple-touch-icon" sizes="192x192" href="/clubos-icon-192.png" />
-        <link rel="apple-touch-icon" sizes="512x512" href="/clubos-icon-512.png" />
+        <link rel="apple-touch-icon" href="/cedarwood-icon-192.png" />
+        <link rel="apple-touch-icon" sizes="192x192" href="/cedarwood-icon-192.png" />
+        <link rel="apple-touch-icon" sizes="512x512" href="/cedarwood-icon-512.png" />
         
         <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
       </Head>

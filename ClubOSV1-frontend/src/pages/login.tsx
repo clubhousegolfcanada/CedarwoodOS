@@ -7,6 +7,7 @@ import { Eye, EyeOff } from 'lucide-react';
 import { tokenManager } from '@/utils/tokenManager';
 import logger from '@/services/logger';
 import GoogleSignInButton from '@/components/GoogleSignInButton';
+import Image from 'next/image';
 
 const LoginPage = () => {
   const router = useRouter();
@@ -109,12 +110,17 @@ const LoginPage = () => {
   return (
     <div className="min-h-screen flex items-start justify-center bg-[var(--bg-primary)] px-4 pt-20 pb-8">
       <div className="max-w-md w-full space-y-6">
-        <div>
-          <h1 className="text-center text-2xl sm:text-3xl font-bold bg-gradient-to-r from-[var(--accent)] to-teal-400 bg-clip-text text-transparent">
-            CedarwoodOS
-          </h1>
-          <h2 className="mt-4 sm:mt-6 text-center text-xl sm:text-2xl font-semibold text-[var(--text-primary)]">
-            Sign in to Operations
+        <div className="flex flex-col items-center">
+          <Image
+            src="/cedarwood-logo-dark.png"
+            alt="Cedarwood Contracting"
+            width={300}
+            height={169}
+            priority
+            className="mb-2"
+          />
+          <h2 className="text-center text-lg sm:text-xl font-semibold text-[var(--text-secondary)]">
+            Operations Terminal
           </h2>
         </div>
 

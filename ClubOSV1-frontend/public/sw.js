@@ -1,6 +1,6 @@
 // CedarwoodOS Service Worker - Push Notifications & Offline Support
 // Last updated: 2025-08-31 - Fixed apiClient double API issue
-const CACHE_NAME = 'clubos-v6-apiclient-fix'; // Force cache clear after fixing apiClient paths
+const CACHE_NAME = 'cedarwoodos-v1'; // CedarwoodOS rebrand
 const OFFLINE_URL = '/offline.html';
 
 // Install event - cache essential assets
@@ -13,7 +13,7 @@ self.addEventListener('install', (event) => {
         '/',
         '/offline.html',
         '/manifest.json',
-        '/clubos-icon-192.png'
+        '/cedarwood-icon-192.png'
       ]);
     })
   );
@@ -76,13 +76,13 @@ self.addEventListener('push', (event) => {
 
   const options = {
     body: notification.body || 'New notification from CedarwoodOS',
-    icon: notification.icon || '/clubos-icon-192.png',
-    badge: notification.badge || '/clubos-badge-72.png',
+    icon: notification.icon || '/cedarwood-icon-192.png',
+    badge: notification.badge || '/cedarwood-icon-192.png',
     vibrate: notification.vibrate || [200, 100, 200, 100, 200], // Enhanced default vibration
     data: notification.data || {},
     requireInteraction: notification.requireInteraction !== undefined ? notification.requireInteraction : true,
     actions: notification.actions || [],
-    tag: notification.tag || 'clubos-notification',
+    tag: notification.tag || 'cedarwoodos-notification',
     renotify: true,
     silent: notification.silent || false,
     sound: notification.sound || 'default'
