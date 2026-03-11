@@ -101,33 +101,17 @@ const Navigation: React.FC<NavigationProps> = ({ unreadMessages = 0 }) => {
     return () => clearInterval(interval);
   }, [mounted]);
 
-  const navItems = user?.role === 'kiosk' 
-    ? [
-        // Kiosk users only see ClubOS Boy
-        { href: '/clubosboy', label: 'ClubOS Boy', roles: ['kiosk'] as UserRole[] },
-      ]
-    : user?.role === 'contractor'
+  const navItems = user?.role === 'contractor'
     ? [
         // Contractor users only see Checklists
         { href: '/checklists', label: 'Checklists', roles: ['contractor'] as UserRole[] },
       ]
-    : user?.role === 'customer'
-    ? [
-        // Customer navigation
-        { href: '/customer', label: 'Dashboard', roles: ['customer'] as UserRole[], icon: 'home' },
-        { href: '/customer/bookings', label: 'Bookings', roles: ['customer'] as UserRole[], icon: 'calendar' },
-        { href: '/customer/compete', label: 'Compete', roles: ['customer'] as UserRole[], icon: 'trophy' },
-        { href: '/customer/leaderboard', label: 'Leaderboard', roles: ['customer'] as UserRole[], icon: 'chart' },
-        { href: '/customer/profile', label: 'Profile', roles: ['customer'] as UserRole[], icon: 'user' },
-      ]
     : [
         // All other roles see the full navigation
         { href: '/', label: 'Dashboard', roles: ['admin', 'operator', 'support'] as UserRole[] },
-        { href: '/bookings', label: 'Bookings', roles: ['admin', 'operator'] as UserRole[] },
         { href: '/messages', label: 'Messages', roles: ['admin', 'operator', 'support'] as UserRole[] },
         { href: '/tickets', label: 'Tickets', roles: ['admin', 'operator'] as UserRole[] },
         { href: '/checklists', label: 'Checklists', roles: ['admin', 'operator', 'support'] as UserRole[] },
-        { href: '/commands', label: 'Commands', roles: ['admin', 'operator', 'support'] as UserRole[] },
         { href: '/operations', label: 'Operations', roles: ['admin', 'operator'] as UserRole[] },
       ].filter(item => hasAnyRole(user?.role, item.roles));
 
@@ -155,7 +139,7 @@ const Navigation: React.FC<NavigationProps> = ({ unreadMessages = 0 }) => {
                 >
                   {/* Use icons for mobile bottom nav */}
                   {item.href === '/' && <div className="w-6 h-6 flex items-center justify-center"><svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg></div>}
-                  {item.href === '/bookings' && <div className="w-6 h-6 flex items-center justify-center"><svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>}
+
                   {item.href === '/messages' && (
                     <div className="relative w-6 h-6 flex items-center justify-center">
                       <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
@@ -167,7 +151,7 @@ const Navigation: React.FC<NavigationProps> = ({ unreadMessages = 0 }) => {
                     </div>
                   )}
                   {item.href === '/tickets' && <div className="w-6 h-6 flex items-center justify-center"><svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" /></svg></div>}
-                  {item.href === '/commands' && <div className="w-6 h-6 flex items-center justify-center"><svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg></div>}
+
                   {item.href === '/checklists' && <div className="w-6 h-6 flex items-center justify-center"><svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg></div>}
                   {item.href === '/operations' && <div className="w-6 h-6 flex items-center justify-center"><svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg></div>}
                   <span className={`text-xs font-medium mt-0.5 ${isActive ? 'transform scale-110' : ''}`}>

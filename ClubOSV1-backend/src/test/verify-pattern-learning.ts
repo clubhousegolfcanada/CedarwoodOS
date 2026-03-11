@@ -111,18 +111,9 @@ async function verifyPatternLearning() {
     issues.push('❌ No recent messages found - pattern learning needs message history');
   }
   
-  // 6. Test if pattern learning service is importable
+  // 6. Pattern Learning Service (removed)
   logger.debug('\n6️⃣ Testing Pattern Learning Service...');
-  try {
-    const { patternLearningService } = await import('../services/patternLearningService');
-    if (patternLearningService) {
-      successes.push('✅ Pattern learning service is available');
-      logger.debug('   Service loaded successfully');
-    }
-  } catch (error) {
-    issues.push('❌ Pattern learning service failed to load');
-    logger.error('   Error:', error);
-  }
+  issues.push('⚠️ Pattern learning service has been removed (CedarwoodOS stripping)');
   
   // 7. Test if conversation analyzer is available
   logger.debug('\n7️⃣ Testing Conversation Analyzer...');

@@ -1,5 +1,4 @@
 import { DbUser, DbTicket, DbFeedback } from './database';
-import { DbBooking } from '../types/booking';
 import { dbToApi, COMMON_DB_TO_API_OPTIONS } from './caseConverters';
 
 // Transform database user to API user format
@@ -36,10 +35,4 @@ export function transformFeedback(dbFeedback: DbFeedback): any {
   });
 }
 
-// Transform database booking to API booking format
-export function transformBooking(dbBooking: DbBooking): any {
-  return dbToApi(dbBooking, {
-    ...COMMON_DB_TO_API_OPTIONS,
-    dateFields: [...COMMON_DB_TO_API_OPTIONS.dateFields, 'start_time', 'cancelled_at']
-  });
-}
+// Transform database booking to API booking format (removed - booking system stripped)

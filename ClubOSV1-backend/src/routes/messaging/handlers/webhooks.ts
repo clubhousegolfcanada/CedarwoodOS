@@ -9,9 +9,6 @@ import { db } from '../../../utils/database';
 import { logger } from '../../../utils/logger';
 import { AppError } from '../../../middleware/errorHandler';
 import { notificationService } from '../../../services/notificationService';
-import { hubspotService } from '../../../services/hubspotService';
-import { ensureOpenPhoneColumns } from '../../../utils/database-helpers';
-import { insertOpenPhoneConversation, updateOpenPhoneConversation } from '../../../utils/openphone-db-helpers';
 import crypto from 'crypto';
 
 /**
@@ -34,8 +31,7 @@ function verifyOpenPhoneSignature(payload: string, signature: string, secret: st
  */
 export async function handleOpenPhoneWebhook(req: Request, res: Response) {
   try {
-    // Ensure database columns exist
-    await ensureOpenPhoneColumns();
+    // Database column check removed (ensureOpenPhoneColumns removed)
     
     // Get raw body for signature verification
     const rawBody = (req as any).rawBody || JSON.stringify(req.body);
@@ -133,16 +129,10 @@ async function handleMessageCreated(data: any, eventType?: string) {
 
     if (existing.rows.length === 0) {
       // Create new conversation
-      await insertOpenPhoneConversation({
-        conversationId: conversationId,
-        phoneNumber: phoneNumber,
-        customerName: data.contactName || null,
-        employeeName: 'System',
-        messages: [message],
-        metadata: {},
-        unreadCount: actualDirection === 'inbound' ? 1 : 0,
-        lastAssistantType: null
-      });
+      await db.query(`
+        INSERT INTO openphone_conversations (conversation_id, phone_number, customer_name, employee_name, messages, metadata, unread_count)
+        VALUES ($1, $2, $3, 'System', $4::jsonb, '{}'::jsonb, $5)
+      `, [conversationId, phoneNumber, data.contactName || null, JSON.stringify([message]), actualDirection === 'inbound' ? 1 : 0]);
     } else {
       // Add message to existing conversation
       await db.query(`
@@ -235,16 +225,10 @@ async function handleConversationCreated(data: any) {
   const { id, phoneNumber, createdAt } = data;
 
   try {
-    await insertOpenPhoneConversation({
-      conversationId: id,
-      phoneNumber: phoneNumber,
-      customerName: data.contactName || null,
-      employeeName: 'System',
-      messages: [],
-      metadata: {},
-      unreadCount: 0,
-      lastAssistantType: null
-    });
+    await db.query(`
+      INSERT INTO openphone_conversations (conversation_id, phone_number, customer_name, employee_name, messages, metadata, unread_count)
+      VALUES ($1, $2, $3, 'System', '[]'::jsonb, '{}'::jsonb, 0)
+    `, [id, phoneNumber, data.contactName || null]);
 
     logger.info('Conversation created', {
       conversationId: id,

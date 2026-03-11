@@ -25,11 +25,7 @@ import { authenticate } from '../middleware/auth';
 import { roleGuard } from '../middleware/roleGuard';
 import { db } from '../utils/database';
 import { logger } from '../utils/logger';
-import { patternLearningService } from '../services/patternLearningService';
-import { patternSafetyService } from '../services/patternSafetyService';
-import { patternOptimizer } from '../services/patternOptimizer';
 import { csvImportService } from '../services/csvImportService';
-import { openPhoneService } from '../services/openphoneService';
 import { sanitizePatternTemplate, sanitizeText } from '../utils/sanitizer';
 import { body, param, query as queryValidator, validationResult } from 'express-validator';
 import OpenAI from 'openai';
@@ -839,8 +835,8 @@ router.get('/safety-settings',
   roleGuard(['admin', 'operator']),
   async (req: Request, res: Response) => {
     try {
-      const settings = await patternSafetyService.getSettings();
-      res.json(settings);
+      // patternSafetyService removed
+      res.json({ blacklistTopics: [], escalationKeywords: [], requireApprovalForNew: false, minExamplesRequired: 0 });
     } catch (error) {
       logger.error('[Patterns API] Failed to get safety settings', error);
       res.status(500).json({ success: false, error: 'Failed to get safety settings' });
@@ -857,8 +853,8 @@ router.put('/safety-settings',
   roleGuard(['admin']),
   async (req: Request, res: Response) => {
     try {
-      await patternSafetyService.updateSettings(req.body);
-      res.json({ success: true, message: 'Safety settings updated' });
+      // patternSafetyService removed
+      res.json({ success: true, message: 'Safety settings service removed' });
     } catch (error) {
       logger.error('[Patterns API] Failed to update safety settings', error);
       res.status(500).json({ success: false, error: 'Failed to update safety settings' });
@@ -875,10 +871,10 @@ router.get('/safety-thresholds',
   roleGuard(['admin', 'operator']),
   async (req: Request, res: Response) => {
     try {
-      const thresholds = await patternSafetyService.getSafetyThresholds();
+      // patternSafetyService removed
       res.json({
         success: true,
-        thresholds
+        thresholds: {}
       });
     } catch (error) {
       logger.error('[Patterns API] Failed to get safety thresholds', error);
@@ -896,15 +892,11 @@ router.put('/safety-thresholds',
   roleGuard(['admin']),
   async (req: Request, res: Response) => {
     try {
-      await patternSafetyService.updateSafetyThresholds(req.body);
-
-      // Return updated thresholds
-      const updatedThresholds = await patternSafetyService.getSafetyThresholds();
-
+      // patternSafetyService removed
       res.json({
         success: true,
-        message: 'Safety thresholds updated',
-        thresholds: updatedThresholds
+        message: 'Safety thresholds service removed',
+        thresholds: {}
       });
     } catch (error) {
       logger.error('[Patterns API] Failed to update safety thresholds', error);
@@ -922,13 +914,11 @@ router.post('/sentiment-patterns/reset',
   roleGuard(['admin']),
   async (req: Request, res: Response) => {
     try {
-      await patternSafetyService.resetSentimentPatterns();
-      const thresholds = await patternSafetyService.getSafetyThresholds();
-
+      // patternSafetyService removed
       res.json({
         success: true,
-        message: 'Sentiment patterns reset to defaults',
-        patterns: thresholds.negativeSentimentPatterns
+        message: 'Sentiment patterns service removed',
+        patterns: []
       });
     } catch (error) {
       logger.error('[Patterns API] Failed to reset sentiment patterns', error);
@@ -946,10 +936,10 @@ router.get('/sentiment-patterns/defaults',
   roleGuard(['admin', 'operator']),
   async (req: Request, res: Response) => {
     try {
-      const defaults = patternSafetyService.getDefaultSentimentPatterns();
+      // patternSafetyService removed
       res.json({
         success: true,
-        patterns: defaults
+        patterns: []
       });
     } catch (error) {
       logger.error('[Patterns API] Failed to get default sentiment patterns', error);
@@ -2122,11 +2112,11 @@ router.post('/queue/:id/respond',
         try {
           const defaultNumber = process.env.OPENPHONE_DEFAULT_NUMBER;
           if (defaultNumber) {
-            await openPhoneService.sendMessage(
-              suggestion.phone_number,
-              defaultNumber,
-              responseToSend
-            );
+            // OpenPhone service removed - log instead
+            logger.info('[Pattern Queue] OpenPhone removed, message not sent', {
+              phoneNumber: suggestion.phone_number,
+              responseLength: responseToSend.length
+            });
 
             logger.info('[Pattern Queue] Response sent after operator action', {
               action,

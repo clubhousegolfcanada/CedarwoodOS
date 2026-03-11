@@ -117,32 +117,7 @@ router.post('/signup',
         [userId, name]
       );
       
-      // Initialize ClubCoins with 100 CC signup bonus - REQUIRED
-      try {
-        const { clubCoinService } = await import('../services/clubCoinService');
-        await clubCoinService.initializeUser(userId, 100);
-        logger.info('Initialized ClubCoins for new user:', { userId, initialBalance: 100 });
-      } catch (error) {
-        logger.error('CRITICAL: Failed to initialize ClubCoins for new user:', { 
-          userId, 
-          email,
-          error: error instanceof Error ? error.message : error 
-        });
-        
-        // Clean up the user if CC initialization fails
-        try {
-          await db.deleteUser(userId);
-          logger.warn('Rolled back user creation due to CC initialization failure');
-        } catch (rollbackError) {
-          logger.error('Failed to rollback user creation:', rollbackError);
-        }
-        
-        throw new AppError(
-          'Account creation failed. Please try again or contact support.',
-          500,
-          'CC_INITIALIZATION_FAILED'
-        );
-      }
+      // ClubCoin initialization removed (gamification system stripped)
       
       // Add user to current season leaderboard
       try {
@@ -626,32 +601,7 @@ router.post('/users',
           [userId, name]
         );
         
-        // Initialize ClubCoins with 100 CC signup bonus
-        try {
-          const { clubCoinService } = await import('../services/clubCoinService');
-          await clubCoinService.initializeUser(userId, 100);
-          logger.info('Initialized ClubCoins for new customer:', { userId, initialBalance: 100 });
-        } catch (error) {
-          logger.error('Failed to initialize ClubCoins for new customer:', { 
-            userId, 
-            email,
-            error: error instanceof Error ? error.message : error 
-          });
-          
-          // Clean up the user if CC initialization fails
-          try {
-            await db.deleteUser(userId);
-            logger.warn('Rolled back user creation due to CC initialization failure');
-          } catch (rollbackError) {
-            logger.error('Failed to rollback user creation:', rollbackError);
-          }
-          
-          throw new AppError(
-            'Customer account creation failed. Please try again.',
-            500,
-            'CC_INITIALIZATION_FAILED'
-          );
-        }
+        // ClubCoin initialization removed (gamification system stripped)
         
         // Add user to current season leaderboard
         try {

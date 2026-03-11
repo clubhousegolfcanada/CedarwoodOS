@@ -1,15 +1,12 @@
-import { ChecklistSystem } from '@/components/ChecklistSystem';
 import { useAuthState } from '@/state/useStore';
 import { useRouter } from 'next/router';
-import { useEffect, useState } from 'react';
-import { Clipboard, BarChart3 } from 'lucide-react';
+import { useEffect } from 'react';
+import { Clipboard } from 'lucide-react';
 import OperatorLayout from '@/components/OperatorLayout';
-import SubNavigation, { SubNavTab } from '@/components/SubNavigation';
 
 export default function Checklists() {
   const { user } = useAuthState();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'checklist' | 'tracker'>('checklist');
 
   // SECURITY: Block customer role from accessing checklists
   useEffect(() => {
@@ -31,25 +28,16 @@ export default function Checklists() {
     return null;
   }
 
-  // Define tabs for SubNavigation
-  const tabs: SubNavTab[] = [
-    { id: 'checklist', label: 'Checklists', icon: Clipboard },
-    { id: 'tracker', label: 'Completion Tracker', icon: BarChart3 }
-  ];
-
   return (
     <OperatorLayout
-      title="Checklists - ClubOS"
-      description="Complete cleaning and tech maintenance checklists"
-      subNavigation={
-        <SubNavigation
-          tabs={tabs}
-          activeTab={activeTab}
-          onTabChange={(tabId) => setActiveTab(tabId as 'checklist' | 'tracker')}
-        />
-      }
+      title="Checklists - CedarwoodOS"
+      description="Checklists for operations management"
     >
-      <ChecklistSystem activeTab={activeTab} />
+      <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
+        <Clipboard className="w-16 h-16 text-[var(--text-muted)] mb-4" />
+        <h1 className="text-2xl font-bold text-[var(--text-primary)] mb-2">Checklists</h1>
+        <p className="text-[var(--text-secondary)]">Coming Soon</p>
+      </div>
     </OperatorLayout>
   );
 }

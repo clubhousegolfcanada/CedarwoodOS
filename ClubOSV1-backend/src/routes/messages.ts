@@ -11,9 +11,7 @@ import { formatToE164, isValidE164 } from '../utils/phoneNumberFormatter';
 import axios from 'axios';
 import { messageAssistantService } from '../services/messageAssistantService';
 import { anonymizePhoneNumber } from '../utils/encryption';
-import { hubspotService } from '../services/hubspotService';
 import { aiAutomationService } from '../services/aiAutomationService';
-import { patternLearningService } from '../services/patternLearningService';
 import { dbToApi, COMMON_DB_TO_API_OPTIONS } from '../utils/caseConverters';
 import { successResponse, errorResponse } from '../utils/responseHelpers';
 
@@ -45,7 +43,7 @@ router.get('/health', async (req, res) => {
         connected: openPhoneConnected,
         configured: !!process.env.OPENPHONE_API_KEY
       },
-      hubspotConnected: hubspotService.isHubSpotConnected()
+      hubspotConnected: false // HubSpot integration removed
     }));
   } catch (error) {
     res.json({ 
@@ -524,118 +522,7 @@ router.post('/send',
         setInboxStatus: 'done' // Mark conversation as done after sending
       });
       
-      // PATTERN LEARNING: Analyze full conversation when marked as done
-      try {
-        // Import services
-        const { patternLearningService } = await import('../services/patternLearningService');
-        const { ConversationAnalyzer } = await import('../services/conversationAnalyzer');
-        const analyzer = new ConversationAnalyzer();
-        
-        // Get recent conversation history from OpenPhone conversations
-        const conversationResult = await db.query(`
-          SELECT messages
-          FROM openphone_conversations 
-          WHERE phone_number = $1
-            AND created_at > NOW() - INTERVAL '24 hours'
-          ORDER BY created_at DESC 
-          LIMIT 1
-        `, [formattedTo]);
-        
-        let conversationMessages = { rows: [] };
-        if (conversationResult.rows.length > 0 && conversationResult.rows[0].messages) {
-          // Extract last 6 messages from JSON array
-          const allMessages = conversationResult.rows[0].messages || [];
-          const recentMessages = allMessages.slice(-6).map((msg: any) => ({
-            body: msg.body || msg.text,
-            direction: msg.direction,
-            created_at: msg.createdAt || msg.created_at,
-            conversation_id: msg.conversationId
-          }));
-          conversationMessages.rows = recentMessages;
-        }
-        
-        if (conversationMessages.rows.length > 0) {
-          // Reverse to get chronological order
-          const messages = conversationMessages.rows.reverse();
-          
-          // Extract conversation context with AI
-          const context = await analyzer.extractConversationContext(messages);
-          
-          // Check if this looks like a complete Q&A exchange
-          const hasQuestion = messages.some(m => 
-            m.direction === 'inbound' && 
-            (m.body.includes('?') || m.body.toLowerCase().match(/do you|can i|how|what|where|when/))
-          );
-          
-          const hasAnswer = messages.some(m => m.direction === 'outbound');
-          const hasResolution = context.isComplete || 
-                               text.toLowerCase().includes('you\'re welcome') ||
-                               text.toLowerCase().includes('no problem') ||
-                               text.toLowerCase().includes('happy to help');
-          
-          // Only create pattern if it's a complete Q&A that should be automated
-          if (hasQuestion && hasAnswer && (hasResolution || context.category)) {
-            // Find the initial customer question
-            const firstQuestion = messages.find(m => 
-              m.direction === 'inbound' && 
-              (m.body.includes('?') || m.body.toLowerCase().match(/do you|can i|how|what|where|when/))
-            );
-            
-            // Get the main operator response (not just acknowledgments)
-            const mainResponse = messages.find(m => 
-              m.direction === 'outbound' && 
-              m.body.length > 20 && // Skip short acknowledgments
-              !m.body.toLowerCase().match(/^(sure|ok|okay|yes|no problem|you're welcome)\.?$/)
-            ) || { body: text }; // Fallback to current message
-            
-            // Check if this is a receipt-related conversation
-            const isReceiptRelated = (firstQuestion?.body || '').toLowerCase().includes('receipt') ||
-                                    (mainResponse?.body || '').toLowerCase().includes('receipt') ||
-                                    (text || '').toLowerCase().includes('receipt');
-
-            // Only learn patterns if not explicitly skipped (e.g., for system messages, receipts)
-            if (firstQuestion && mainResponse && !skipPatternLearning && !isReceiptRelated) {
-              // Use pattern learning with full context
-              await patternLearningService.learnFromHumanResponse(
-                firstQuestion.body,     // The actual question
-                mainResponse.body,      // The substantive answer
-                [],                     // actionsTaken
-                result.conversationId || messages[0].conversation_id,
-                formattedTo,           // customer's number
-                req.user?.id?.toString()
-              );
-
-              logger.info('[Pattern Learning] Created pattern from complete conversation', {
-                category: context.category,
-                intent: context.intent,
-                isComplete: context.isComplete,
-                questionPreview: firstQuestion.body.substring(0, 50),
-                answerPreview: mainResponse.body.substring(0, 50)
-              });
-            } else if (skipPatternLearning) {
-              logger.info('[Pattern Learning] Skipped pattern learning for system message', {
-                to: formattedTo,
-                reason: 'skipPatternLearning flag set'
-              });
-            } else if (isReceiptRelated) {
-              logger.info('[Pattern Learning] Skipped pattern learning for receipt-related conversation', {
-                to: formattedTo,
-                reason: 'Receipt-related content detected'
-              });
-            }
-          } else {
-            logger.info('[Pattern Learning] Skipped - not a complete automatable Q&A', {
-              hasQuestion,
-              hasAnswer,
-              hasResolution,
-              category: context.category
-            });
-          }
-        }
-      } catch (error) {
-        logger.error('[Pattern Learning] Failed to analyze conversation', error);
-        // Don't fail the send if pattern learning fails
-      }
+      // PATTERN LEARNING: Removed - patternLearningService stripped
 
       // Store message immediately as fallback (webhook will deduplicate if it arrives)
       const tempMessage = {
@@ -1176,17 +1063,8 @@ router.get('/conversation/:id', authenticate, async (req: Request, res: Response
         `, [conversationId]);
         
         if (lastCustomerMessage.rows[0] && !isAiGenerated) {
-          // Only learn from human operator responses, not AI-generated ones
-          await patternLearningService.learnFromHumanResponse(
-            lastCustomerMessage.rows[0].body,
-            content,
-            [], // TODO: Extract any actions taken (tickets created, etc.)
-            conversationId,
-            to, // phone number
-            req.user?.id
-          );
-          
-          logger.info('[Pattern Learning] Learned from operator response', {
+          // Pattern learning service removed - skipping
+          logger.debug('[Pattern Learning] Pattern learning service removed, skipping', {
             conversationId,
             phoneNumber: to,
             operatorId: req.user?.id

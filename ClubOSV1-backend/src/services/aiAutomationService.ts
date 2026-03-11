@@ -1,11 +1,8 @@
 import { logger } from '../utils/logger';
 import { db } from '../utils/database';
-import { openPhoneService } from './openphoneService';
-import ninjaoneService from './ninjaone';
 import { isAutomationEnabled, logAutomationUsage } from '../routes/ai-automations';
 import { assistantService } from './assistantService';
 import { calculateConfidence, findBestAutomation } from './aiAutomationPatterns';
-import { patternSafetyService } from './patternSafetyService';
 import { cacheService } from './cacheService';
 import OpenAI from 'openai';
 
@@ -85,12 +82,11 @@ export class AIAutomationService {
         return false;
       }
       
-      // Actually send the message via OpenPhone
-      await openPhoneService.sendMessage(
-        phoneNumber,
-        process.env.OPENPHONE_DEFAULT_NUMBER || '',
-        message
-      );
+      // OpenPhone service removed - log instead
+      logger.info('Automatic response prepared but not sent (OpenPhone removed)', {
+        phoneNumber: phoneNumber.slice(-4),
+        messageLength: message.length
+      });
       
       // Log the action to the database
       await db.query(`
@@ -212,33 +208,8 @@ export class AIAutomationService {
   async processMessage(phoneNumber: string, message: string, conversationId?: string, isInitialMessage: boolean = false): Promise<AutomationResponse> {
     const lowerMessage = message.toLowerCase().trim();
     
-    // SAFETY CHECK: Check for blacklisted topics and escalation keywords
-    const safetyCheck = await patternSafetyService.checkMessageSafety(message);
-    if (!safetyCheck.safe) {
-      logger.warn('Message blocked by safety controls', {
-        reason: safetyCheck.reason,
-        alertType: safetyCheck.alertType,
-        triggeredKeywords: safetyCheck.triggeredKeywords,
-        phoneNumber: phoneNumber.slice(-4)
-      });
-      
-      // For blacklisted topics, don't auto-respond at all
-      if (safetyCheck.alertType === 'blacklist') {
-        return { 
-          handled: false, 
-          assistantType: 'blocked_blacklist' 
-        };
-      }
-      
-      // For escalation keywords, alert operator but don't block
-      if (safetyCheck.alertType === 'escalation') {
-        // Alert has already been created in patternSafetyService
-        return { 
-          handled: false, 
-          assistantType: 'escalation_alert' 
-        };
-      }
-    }
+    // SAFETY CHECK: Pattern safety service removed
+    // Basic safety check could be re-added in Phase 2
     
     // Check if there's a pending confirmation for this phone number
     const hasPendingConfirmation = await this.checkForPendingConfirmation(phoneNumber);
@@ -1534,57 +1505,27 @@ export class AIAutomationService {
   }
   
   /**
-   * Execute Trackman reset via NinjaOne
+   * Execute Trackman reset (NinjaOne removed)
    */
   private async executeTrackmanReset(bayNumber: string | null, conversationId?: string) {
-    try {
-      // TODO: Get device ID from bay number mapping
-      const deviceId = 'TRACKMAN_DEVICE_ID'; // This should be mapped from config
-      const scriptId = 'TRACKMAN_RESET_SCRIPT_ID';
-      
-      const job = await ninjaoneService.executeScript(deviceId, scriptId, { bayNumber });
-      
-      logger.info('Trackman reset initiated', { bayNumber, jobId: job.jobId });
-      
-      // TODO: Monitor job status and send completion message
-    } catch (error) {
-      logger.error('Failed to execute Trackman reset:', error);
-      throw error;
-    }
+    logger.warn('Trackman reset requested but NinjaOne service removed', { bayNumber });
+    throw new Error('NinjaOne integration has been removed');
   }
-  
+
   /**
-   * Execute Simulator reboot via NinjaOne
+   * Execute Simulator reboot (NinjaOne removed)
    */
   private async executeSimulatorReboot(bayNumber: string | null, conversationId?: string) {
-    try {
-      const deviceId = 'SIMULATOR_DEVICE_ID';
-      const scriptId = 'SIMULATOR_REBOOT_SCRIPT_ID';
-      
-      const job = await ninjaoneService.executeScript(deviceId, scriptId, { bayNumber });
-      
-      logger.info('Simulator reboot initiated', { bayNumber, jobId: job.jobId });
-    } catch (error) {
-      logger.error('Failed to execute simulator reboot:', error);
-      throw error;
-    }
+    logger.warn('Simulator reboot requested but NinjaOne service removed', { bayNumber });
+    throw new Error('NinjaOne integration has been removed');
   }
-  
+
   /**
-   * Execute TV restart via NinjaOne
+   * Execute TV restart (NinjaOne removed)
    */
   private async executeTVRestart(bayNumber: string | null, conversationId?: string) {
-    try {
-      const deviceId = 'TV_DEVICE_ID';
-      const scriptId = 'TV_RESTART_SCRIPT_ID';
-      
-      const job = await ninjaoneService.executeScript(deviceId, scriptId, { bayNumber });
-      
-      logger.info('TV restart initiated', { bayNumber, jobId: job.jobId });
-    } catch (error) {
-      logger.error('Failed to execute TV restart:', error);
-      throw error;
-    }
+    logger.warn('TV restart requested but NinjaOne service removed', { bayNumber });
+    throw new Error('NinjaOne integration has been removed');
   }
   
   /**

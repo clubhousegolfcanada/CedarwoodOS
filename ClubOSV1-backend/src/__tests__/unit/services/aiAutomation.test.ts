@@ -10,13 +10,11 @@ jest.mock('../../../utils/logger', () => ({
 }));
 jest.mock('../../../services/assistantService');
 jest.mock('../../../services/slackFallback');
-jest.mock('../../../services/openphoneService');
 
 import { aiAutomationService } from '../../../services/aiAutomationService';
 import { db } from '../../../utils/database';
 import { assistantService } from '../../../services/assistantService';
 import { slackFallback } from '../../../services/slackFallback';
-import { openPhoneService } from '../../../services/openphoneService';
 
 const mockedDb = db as jest.Mocked<typeof db>;
 

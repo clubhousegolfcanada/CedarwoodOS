@@ -5,7 +5,6 @@ import { useEffect, useState, useRef } from 'react';
 import { useDemoMode, useAnalytics } from '@/state/hooks';
 import { useAuthState } from '@/state/useStore';
 import { hasMinimumRole } from '@/utils/roleUtils';
-import { enforceOperatorRouteGuard } from '@/utils/customerRouteGuard';
 import { useRouter } from 'next/router';
 import { http } from '@/api/http';
 import { MiniInsightsPanel } from '@/components/dashboard/MiniInsightsPanel';
@@ -13,7 +12,6 @@ import { SuggestedActions } from '@/components/dashboard/SuggestedActions';
 import { CommandShortcutBar } from '@/components/dashboard/CommandShortcutBar';
 import { RecentCustomers } from '@/components/dashboard/RecentCustomers';
 import MessagesCardV3 from '@/components/dashboard/MessagesCardV3';
-import OccupancyMap from '@/components/dashboard/OccupancyMap';
 import { TaskList } from '@/components/dashboard/TaskList';
 import { tokenManager } from '@/utils/tokenManager';
 import logger from '@/services/logger';
@@ -47,11 +45,12 @@ export default function Home() {
   
   // SECURITY: Enforce operator-only access with whitelist approach
   useEffect(() => {
-    // Add small delay to let auth state settle
     const checkAuth = setTimeout(() => {
-      enforceOperatorRouteGuard(user, router, ['admin', 'operator', 'support', 'kiosk']);
+      if (user && !['admin', 'operator', 'support', 'kiosk'].includes(user.role)) {
+        router.push('/login');
+      }
     }, 100);
-    
+
     return () => clearTimeout(checkAuth);
   }, [user, router]);
   
@@ -340,12 +339,6 @@ export default function Home() {
               <SectionErrorBoundary section="Quick Stats">
                 <DatabaseExternalTools quickStats={quickStats} />
               </SectionErrorBoundary>
-              {/* Bay Status - Desktop only */}
-              <div className="hidden lg:block">
-                <SectionErrorBoundary section="Occupancy Map" compact>
-                  <OccupancyMap compact />
-                </SectionErrorBoundary>
-              </div>
               <SectionErrorBoundary section="Suggested Actions">
                 <SuggestedActions />
               </SectionErrorBoundary>

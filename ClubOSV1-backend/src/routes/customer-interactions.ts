@@ -6,7 +6,6 @@ import { query } from 'express-validator';
 import { db } from '../utils/database';
 import { logger } from '../utils/logger';
 import { anonymizePhoneNumber } from '../utils/encryption';
-import { openPhoneService } from '../services/openphoneService';
 import { transcriptKnowledgeExtractor } from '../services/transcriptKnowledgeExtractor';
 
 const router = Router();

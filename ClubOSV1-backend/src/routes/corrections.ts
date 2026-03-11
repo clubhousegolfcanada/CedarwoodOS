@@ -6,8 +6,6 @@ import { db } from '../utils/database';
 import { logger } from '../utils/logger';
 import { body } from 'express-validator';
 import { handleValidationErrors } from '../middleware/validation';
-import { patternLearningService } from '../services/patternLearningService';
-
 const router = Router();
 
 // Protected route - requires admin or operator role
@@ -149,7 +147,8 @@ router.post('/save',
           results.patternCreated = false;
         } else {
         // Generate pattern from the correction
-        const patternSignature = patternLearningService.generateSignature(originalQuery);
+        // Generate a simple signature from the query (patternLearningService removed)
+        const patternSignature = originalQuery.toLowerCase().trim().replace(/\s+/g, '_').substring(0, 100);
 
         // Check if pattern exists
         const existingPattern = await db.query(`

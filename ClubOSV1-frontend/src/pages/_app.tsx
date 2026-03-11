@@ -14,7 +14,7 @@ import { tokenManager } from '@/utils/tokenManager';
 import { SessionExpiryWarning } from '@/components/SessionExpiryWarning';
 import { MessagesProvider, useMessages } from '@/contexts/MessagesContext';
 // Swipe navigation removed - conflicts with horizontal scrolling
-import RemoteActionsBar from '@/components/RemoteActionsBar';
+// RemoteActionsBar removed - golf-specific component
 import { performanceMonitor, updateAnimationDurations } from '@/utils/performanceMonitor';
 import { initializeCSRF } from '@/utils/csrf';
 import { useAppVisibility } from '@/hooks/useAppVisibility';
@@ -213,15 +213,7 @@ function AppContent({ Component, pageProps }: AppContentProps) {
         <Component {...pageProps} />
       ) : (
         <AuthGuard>
-          {/* Add padding-bottom for fixed remote actions bar (desktop only) */}
-          <div className={viewMode !== 'customer' && user?.role !== 'customer' && user?.role !== 'kiosk' ? 'md:pb-14' : ''}>
-            <Component {...pageProps} />
-          </div>
-          {isAuthenticated && viewMode !== 'customer' && user?.role !== 'customer' && user?.role !== 'kiosk' && (
-            <div className="hidden md:block">
-              <RemoteActionsBar />
-            </div>
-          )}
+          <Component {...pageProps} />
         </AuthGuard>
       )}
       <Notifications />

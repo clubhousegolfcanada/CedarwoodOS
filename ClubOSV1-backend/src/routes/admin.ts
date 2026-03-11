@@ -3,12 +3,8 @@ import { authenticate } from '../middleware/auth';
 import { roleGuard } from '../middleware/roleGuard';
 import { documentReprocessor } from '../services/documentReprocessor';
 import { logger } from '../utils/logger';
-import bookingRewardsRoutes from './admin/bookingRewards';
 
 const router = Router();
-
-// Mount booking rewards admin routes
-router.use('/booking-rewards', bookingRewardsRoutes);
 
 // Reprocess all documents with better titles
 router.post('/reprocess-documents', authenticate, roleGuard(['admin']), async (req: Request, res: Response) => {

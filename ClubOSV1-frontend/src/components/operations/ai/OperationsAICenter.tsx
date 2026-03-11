@@ -6,7 +6,6 @@ import { Brain, MessageSquare, Sparkles, Settings, RefreshCw, Download, BarChart
 import { KnowledgeRouterPanel } from '@/components/admin/KnowledgeRouterPanel';
 import { AIFeatureCard } from '@/components/AIFeatureCard';
 import { FeedbackResponse } from '@/components/FeedbackResponse';
-import { OpenPhoneConversations } from '@/components/OpenPhoneConversations';
 import { tokenManager } from '@/utils/tokenManager';
 import logger from '@/services/logger';
 
@@ -41,7 +40,6 @@ export const OperationsAICenter: React.FC = () => {
   const [promptTemplates, setPromptTemplates] = useState<PromptTemplate[]>([]);
   const [systemMetrics, setSystemMetrics] = useState<any>({ total_documents: 0, unique_assistants: 0 });
   const [feedback, setFeedback] = useState<any[]>([]);
-  const [openPhoneConversations, setOpenPhoneConversations] = useState<any[]>([]);
   const [expandedSections, setExpandedSections] = useState({
     automations: true,
     knowledge: true,
@@ -65,7 +63,6 @@ export const OperationsAICenter: React.FC = () => {
       fetchAIFeatures();
       fetchSystemMetrics();
       fetchFeedback();
-      fetchOpenPhoneConversations();
       fetchPromptTemplates();
     }
   }, [token]);
@@ -113,20 +110,6 @@ export const OperationsAICenter: React.FC = () => {
     } catch (error) {
       logger.error('Error fetching feedback:', error);
       setFeedback([]);
-    }
-  };
-
-  const fetchOpenPhoneConversations = async () => {
-    if (!token) return;
-    
-    try {
-      const response = await http.get(`openphone/recent`, {
-
-      });
-      setOpenPhoneConversations(response.data || []);
-    } catch (error) {
-      logger.error('Error fetching OpenPhone conversations:', error);
-      setOpenPhoneConversations([]);
     }
   };
 
@@ -478,47 +461,6 @@ export const OperationsAICenter: React.FC = () => {
               <RefreshCw className="h-4 w-4" />
               <span>Refresh Metrics</span>
             </button>
-          </div>
-        </div>
-
-        {/* Recent Messages */}
-        <div className="bg-[var(--bg-secondary)] rounded-lg shadow-sm border border-[var(--border-primary)] p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center space-x-2">
-              <Clock className="h-5 w-5 text-primary" />
-              <h3 className="text-lg font-semibold text-[var(--text-primary)]">Recent Messages</h3>
-            </div>
-            <button
-              onClick={fetchOpenPhoneConversations}
-              className="p-1 text-[var(--text-secondary)] hover:text-[var(--text-secondary)]"
-            >
-              <RefreshCw className="h-4 w-4" />
-            </button>
-          </div>
-          
-          <div className="space-y-3 max-h-96 overflow-y-auto">
-            {openPhoneConversations.length > 0 ? (
-              openPhoneConversations.slice(0, 10).map((conv, index) => (
-                <div key={index} className="p-3 bg-[var(--bg-tertiary)] rounded-lg text-sm">
-                  <div className="flex items-start justify-between mb-1">
-                    <span className="font-medium text-[var(--text-primary)]">
-                      {conv.customer_name || conv.phone_number}
-                    </span>
-                    <span className="text-xs text-[var(--text-muted)]">
-                      {new Date(conv.created_at).toLocaleTimeString()}
-                    </span>
-                  </div>
-                  <p className="text-[var(--text-secondary)] line-clamp-2">{conv.initial_message}</p>
-                  {conv.assistant_type && (
-                    <span className="inline-block mt-1 px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full">
-                      {conv.assistant_type}
-                    </span>
-                  )}
-                </div>
-              ))
-            ) : (
-              <p className="text-[var(--text-muted)] text-center py-4">No recent messages</p>
-            )}
           </div>
         </div>
 

@@ -2,8 +2,6 @@ import { MessageAssistantService } from '../../../services/messageAssistantServi
 import { assistantService } from '../../../services/assistantService';
 import { db } from '../../../utils/database';
 import { logger } from '../../../utils/logger';
-import { hubspotService } from '../../../services/hubspotService';
-
 // Mock dependencies
 jest.mock('../../../services/assistantService', () => ({
   assistantService: {
@@ -26,12 +24,6 @@ jest.mock('../../../utils/logger', () => ({
     error: jest.fn(),
     warn: jest.fn(),
     debug: jest.fn()
-  }
-}));
-
-jest.mock('../../../services/hubspotService', () => ({
-  hubspotService: {
-    searchByPhone: jest.fn()
   }
 }));
 
@@ -62,14 +54,7 @@ describe('MessageAssistantService', () => {
         confidence: 0.9
       };
 
-      const mockHubspotContact = {
-        id: 'contact_123',
-        name: 'John Doe',
-        company: 'Test Company'
-      };
-
       (assistantService.getAssistantResponse as jest.Mock).mockResolvedValue(mockAssistantResponse);
-      (hubspotService.searchByPhone as jest.Mock).mockResolvedValue(mockHubspotContact);
       (db.createMessageSuggestion as jest.Mock).mockResolvedValue({
         id: 'suggestion_123',
         ...mockAssistantResponse

@@ -8,7 +8,6 @@ import { Request, Response } from 'express';
 import { db } from '../../../utils/database';
 import { logger } from '../../../utils/logger';
 import { AppError } from '../../../middleware/errorHandler';
-import { openPhoneService } from '../../../services/openphoneService';
 
 /**
  * List all conversations with pagination and filters

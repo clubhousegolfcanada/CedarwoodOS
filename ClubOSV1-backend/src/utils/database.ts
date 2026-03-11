@@ -5,13 +5,8 @@ import { createTablesSQL, createIndexesSQL } from './database-tables';
 import { runMigrations as runHardcodedMigrations } from './database-migrations';
 import { MigrationRunner } from './migrationRunner';
 import * as path from 'path';
-import { DbBooking } from '../types/booking';
-
 // Import the pool and query from db.ts
 import { pool, query } from './db';
-
-// DbBooking is imported above and available for use in this file
-// Other files should import directly from '../types/booking'
 
 // All database interfaces
 export interface DbUser {
@@ -76,8 +71,7 @@ export interface DbFeedback {
   createdAt: Date;
 }
 
-// Import the centralized booking types
-// Note: DbBooking is now defined in types/booking.ts and exported at the top of this file
+// DbBooking type removed (booking system stripped) - using any for remaining booking methods
 
 export interface DbTask {
   id: string;
@@ -563,9 +557,8 @@ class DatabaseService {
     return result.rows[0];
   }
 
-  // Booking operations
-  // NOTE: This function maps between old database schema and new DbBooking type
-  async createBooking(booking: Omit<DbBooking, 'id' | 'created_at' | 'updated_at'>): Promise<DbBooking> {
+  // Booking operations (to be removed in Phase 1 cleanup)
+  async createBooking(booking: any): Promise<any> {
     const id = uuidv4();
     // Map new field names to old database columns
     const result = await query(
@@ -593,7 +586,7 @@ class DatabaseService {
     user_id?: string;
     simulator_id?: string;
     date?: Date;
-  }): Promise<DbBooking[]> {
+  }): Promise<any[]> {
     let queryText = 'SELECT * FROM bookings';
     const conditions: string[] = [];
     const values: any[] = [];
@@ -627,7 +620,7 @@ class DatabaseService {
     return result.rows;
   }
 
-  async updateBookingStatus(id: string, status: string): Promise<DbBooking | null> {
+  async updateBookingStatus(id: string, status: string): Promise<any | null> {
     const result = await query(
       `UPDATE bookings 
        SET status = $1, 

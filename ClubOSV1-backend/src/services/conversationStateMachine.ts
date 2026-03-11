@@ -6,7 +6,6 @@
 
 import { db } from '../utils/database';
 import { logger } from '../utils/logger';
-import { patternLearningService } from './patternLearningService';
 import { EventEmitter } from 'events';
 
 interface ConversationState {
@@ -232,13 +231,12 @@ export class ConversationStateMachine extends EventEmitter {
         }
       }
 
-      // Process through pattern learning
-      const patternResult = await patternLearningService.processMessage(
-        message,
-        phoneNumber,
-        conversationId,
-        state.context.get('customer_name')
-      );
+      // Process through pattern matching (pattern learning service removed)
+      const patternResult: any = {
+        pattern: null,
+        response: null,
+        action: null
+      };
 
       // Add to pattern chain
       if (patternResult.pattern) {
@@ -330,11 +328,11 @@ export class ConversationStateMachine extends EventEmitter {
     phoneNumber: string,
     conversationId: string
   ): Promise<any> {
-    const result = await patternLearningService.processMessage(
-      message,
-      phoneNumber,
-      conversationId
-    );
+    // Pattern learning service removed - return default result
+    const result: any = {
+      action: null,
+      response: null
+    };
 
     if (result.action === 'auto_execute' && result.response) {
       return {

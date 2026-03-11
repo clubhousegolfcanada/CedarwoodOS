@@ -8,7 +8,6 @@ import { Request, Response } from 'express';
 import { db } from '../../../utils/database';
 import { logger } from '../../../utils/logger';
 import { AppError } from '../../../middleware/errorHandler';
-import { openPhoneService } from '../../../services/openphoneService';
 import { messageAssistantService } from '../../../services/messageAssistantService';
 import { notificationService } from '../../../services/notificationService';
 
@@ -67,53 +66,8 @@ export async function sendMessage(req: Request, res: Response) {
     throw new AppError('Missing required fields: to, body', 400);
   }
 
-  try {
-    // Send via OpenPhone
-    const result = await openPhoneService.sendMessage(
-      to,
-      process.env.OPENPHONE_DEFAULT_NUMBER || '',
-      body
-    );
-
-    // Update conversation if provided
-    if (conversationId) {
-      await db.query(`
-        UPDATE openphone_conversations
-        SET 
-          messages = messages || $2::jsonb,
-          updated_at = NOW(),
-          last_message_at = NOW()
-        WHERE conversation_id = $1
-      `, [conversationId, JSON.stringify([{
-        id: result.id,
-        body,
-        direction: 'outgoing',
-        from: process.env.OPENPHONE_DEFAULT_NUMBER,
-        to,
-        createdAt: new Date().toISOString(),
-        userId: req.user!.id,
-        userName: req.user!.name
-      }])]);
-    }
-
-    logger.info('Message sent', {
-      to,
-      conversationId,
-      userId: req.user!.id
-    });
-
-    res.json({
-      success: true,
-      messageId: result.id,
-      message: result
-    });
-  } catch (error: any) {
-    logger.error('Error sending message:', error);
-    throw new AppError(
-      error.message || 'Failed to send message',
-      error.statusCode || 500
-    );
-  }
+  // OpenPhone service removed - messaging not available
+  throw new AppError('Message sending not available (OpenPhone integration removed)', 503);
 }
 
 /**
@@ -245,7 +199,7 @@ export async function getDebugStatus(req: Request, res: Response) {
       },
       userStats: userStats.rows,
       services: {
-        openphone: await openPhoneService.testConnection(),
+        openphone: false, // OpenPhone integration removed
         notifications: (notificationService as any).initialized || false
       }
     });
