@@ -61,7 +61,29 @@ const MediaUploadZone: React.FC<MediaUploadZoneProps> = ({
       });
     }
 
-    // Handle images — compress via canvas (iOS HEIC compatible)
+    // PNGs and SVGs: send original file (preserve quality + transparency)
+    const isLossless = file.type === 'image/png' || file.type === 'image/svg+xml';
+    if (isLossless) {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const dataUrl = reader.result as string;
+          if (dataUrl.length > MAX_COMPRESSED_SIZE * 2) {
+            resolve(null); // File too large
+            return;
+          }
+          resolve({
+            data: dataUrl,
+            fileName: file.name,
+            mimeType: file.type,
+          });
+        };
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // Photos (JPEG/WebP/HEIC): resize if needed, compress via canvas
     return new Promise((resolve) => {
       const img = new window.Image();
       const objectUrl = URL.createObjectURL(file);
@@ -69,9 +91,10 @@ const MediaUploadZone: React.FC<MediaUploadZoneProps> = ({
       img.onload = () => {
         URL.revokeObjectURL(objectUrl);
 
-        // Calculate dimensions (max 2000px longest side)
+        // Calculate dimensions (max longest side)
         let { width, height } = img;
-        if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+        const needsResize = width > MAX_DIMENSION || height > MAX_DIMENSION;
+        if (needsResize) {
           if (width > height) {
             height = Math.round((height / width) * MAX_DIMENSION);
             width = MAX_DIMENSION;
@@ -81,7 +104,7 @@ const MediaUploadZone: React.FC<MediaUploadZoneProps> = ({
           }
         }
 
-        // Draw to canvas and compress as JPEG
+        // Draw to canvas — needed for HEIC conversion and resize
         const canvas = document.createElement('canvas');
         canvas.width = width;
         canvas.height = height;
@@ -92,17 +115,18 @@ const MediaUploadZone: React.FC<MediaUploadZoneProps> = ({
         }
         ctx.drawImage(img, 0, 0, width, height);
 
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+        // Use high quality (0.92) to preserve detail
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
 
         if (dataUrl.length > MAX_COMPRESSED_SIZE) {
-          // Try lower quality
-          const lqDataUrl = canvas.toDataURL('image/jpeg', 0.5);
-          if (lqDataUrl.length > MAX_COMPRESSED_SIZE) {
+          // Try moderate quality
+          const mqDataUrl = canvas.toDataURL('image/jpeg', 0.75);
+          if (mqDataUrl.length > MAX_COMPRESSED_SIZE) {
             resolve(null);
             return;
           }
           resolve({
-            data: lqDataUrl,
+            data: mqDataUrl,
             fileName: file.name.replace(/\.[^.]+$/, '.jpg'),
             mimeType: 'image/jpeg',
           });

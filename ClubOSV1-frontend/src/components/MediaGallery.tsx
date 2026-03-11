@@ -157,11 +157,15 @@ const LightboxModal: React.FC<LightboxModalProps> = ({ result, onClose, onPrev, 
       const { http } = require('@/api/http');
       http.get(`media/${result.id}/file`)
         .then((res: any) => {
-          if (res.data?.data?.fileData) {
-            setFullResUrl(res.data.data.fileData);
+          // Backend returns { success, fileData } — axios wraps in res.data
+          const fileData = res.data?.fileData || res.data?.data?.fileData;
+          if (fileData) {
+            setFullResUrl(fileData);
           }
         })
-        .catch(() => {}) // Fall back to thumbnail
+        .catch((err: any) => {
+          console.warn('[MediaGallery] Full-res fetch failed, using thumbnail:', err?.message);
+        })
         .finally(() => setLoadingFullRes(false));
     }
   }, [result.id]);
