@@ -249,7 +249,7 @@ export async function runMigrations() {
       
       await query(`
         CREATE VIEW slack_replies_view AS
-        SELECT 
+        SELECT
           sr.id as reply_id,
           sr.thread_ts,
           sr.user_name as reply_user_name,
@@ -257,17 +257,14 @@ export async function runMigrations() {
           sr.text as reply_text,
           sr.timestamp as reply_timestamp,
           sr.created_at as reply_created_at,
-          
+
           -- Original message details
           sm.id as original_message_id,
-          sm.user_id as original_user_id,
           sm.request_id as original_request_id,
-          sm.slack_channel,
-          sm.request_description,
+          sm.user_name as original_user_name,
           sm.location,
-          sm.route,
           sm.created_at as original_created_at
-          
+
         FROM slack_replies sr
         JOIN slack_messages sm ON sr.thread_ts = sm.slack_thread_ts
         ORDER BY sr.timestamp DESC
