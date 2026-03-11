@@ -1,0 +1,436 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+@import './animations.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* PWA Standalone Mode - Simple and clean */
+@media all and (display-mode: standalone) {
+  /* iOS safe area handling */
+  body {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Mobile messaging app layout fix */
+@media (max-width: 768px) {
+  /* Messages page specific */
+  .messages-page-mobile {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  /* Remove any scroll on body when in messages */
+  body:has(.messages-page-mobile) {
+    overflow: hidden;
+  }
+}
+
+@layer base {
+  /* Enhanced Theme Variables with better contrast */
+  :root[data-theme="dark"] {
+    /* Background colors - improved contrast */
+    --bg-primary: #0a0a0a;        /* Darker base */
+    --bg-secondary: #141414;      /* Slightly lighter than primary */
+    --bg-tertiary: #1f1f1f;       /* Lightened for better contrast */
+    --bg-hover: #252525;          /* New: hover state background */
+    --bg-elevated: #1a1a1a;       /* New: for elevated cards */
+    
+    /* Accent colors */
+    --accent: #1a4040;            /* Slightly brighter teal */
+    --accent-hover: #245454;
+    --accent-light: rgba(26, 64, 64, 0.2);  /* New: for subtle accent backgrounds */
+    
+    /* Text colors - improved readability */
+    --text-primary: #f0f0f0;      /* Slightly off-white for less harshness */
+    --text-secondary: #a8a8a8;    /* Brighter secondary text */
+    --text-muted: #707070;        /* Brighter muted text */
+    --text-disabled: #4a4a4a;     /* New: for disabled text */
+    
+    /* Border colors - more visible */
+    --border-primary: #2a2a2a;    /* More visible borders */
+    --border-secondary: #222222;
+    --border-hover: #404040;      /* New: hover border color */
+    
+    /* Status colors - adjusted for dark mode */
+    --status-success: #10b981;
+    --status-error: #ef4444;
+    --status-warning: #f59e0b;
+    --status-info: #3b82f6;
+    
+    /* Interactive element colors */
+    --input-bg: #1a1a1a;          /* New: input background */
+    --input-border: #2a2a2a;      /* New: input border */
+    --input-focus: #3a3a3a;       /* New: focused input border */
+  }
+
+  :root[data-theme="light"] {
+    /* Background colors */
+    --bg-primary: #ffffff;
+    --bg-secondary: #f9fafb;      /* Slightly warmer gray */
+    --bg-tertiary: #f3f4f6;
+    --bg-hover: #f0f1f3;          /* New: hover state background */
+    --bg-elevated: #ffffff;       /* New: for elevated cards */
+    
+    /* Accent colors */
+    --accent: #152f2f;
+    --accent-hover: #1a3939;
+    --accent-light: rgba(21, 47, 47, 0.05);  /* New: for subtle accent backgrounds */
+    
+    /* Text colors */
+    --text-primary: #111827;      /* Darker for better contrast */
+    --text-secondary: #4b5563;    /* Darker secondary */
+    --text-muted: #9ca3af;
+    --text-disabled: #d1d5db;     /* New: for disabled text */
+    
+    /* Border colors */
+    --border-primary: #e5e7eb;
+    --border-secondary: #f3f4f6;
+    --border-hover: #d1d5db;      /* New: hover border color */
+    
+    /* Status colors */
+    --status-success: #10b981;
+    --status-error: #ef4444;
+    --status-warning: #f59e0b;
+    --status-info: #3b82f6;
+    
+    /* Interactive element colors */
+    --input-bg: #ffffff;          /* New: input background */
+    --input-border: #e5e7eb;      /* New: input border */
+    --input-focus: #cbd5e1;       /* New: focused input border */
+  }
+
+  html {
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    font-family: 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+
+  body {
+    @apply bg-[var(--bg-primary)] text-[var(--text-primary)];
+    line-height: 1.6;
+  }
+}
+
+@layer components {
+  /* Enhanced Card Component with proper dark mode support */
+  .card {
+    @apply bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-xl p-3 mb-3;
+    @apply transition-all duration-300;
+  }
+
+  .card:hover {
+    @apply bg-[var(--bg-hover)] border-[var(--border-hover)];
+    @apply -translate-y-0.5;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  }
+
+  /* Dark mode specific card shadows */
+  [data-theme="dark"] .card {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+
+  [data-theme="dark"] .card:hover {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  }
+
+  /* Form Elements with proper theming */
+  .form-group {
+    @apply mb-3;
+  }
+
+  .form-label {
+    @apply block text-xs font-medium uppercase tracking-wider;
+    @apply text-[var(--text-secondary)] mb-2;
+  }
+
+  .form-input,
+  .form-textarea {
+    @apply w-full bg-[var(--input-bg)] border border-[var(--input-border)];
+    @apply text-[var(--text-primary)] px-4 py-3 rounded-lg text-sm font-light;
+    @apply transition-all duration-200 appearance-none;
+  }
+
+  .form-input:focus,
+  .form-textarea:focus {
+    @apply outline-none border-[var(--input-focus)] bg-[var(--bg-tertiary)];
+    box-shadow: 0 0 0 3px var(--accent-light);
+  }
+
+  .form-textarea {
+    @apply resize-none min-h-[140px];
+  }
+
+  .form-helper {
+    @apply text-xs text-[var(--text-muted)] mt-1;
+  }
+
+  /* Theme-aware utility classes for components */
+  .text-primary { color: var(--text-primary); }
+  .text-secondary { color: var(--text-secondary); }
+  .text-muted { color: var(--text-muted); }
+  .text-disabled { color: var(--text-disabled); }
+  
+  .bg-primary { background-color: var(--bg-primary); }
+  .bg-secondary { background-color: var(--bg-secondary); }
+  .bg-tertiary { background-color: var(--bg-tertiary); }
+  .bg-hover { background-color: var(--bg-hover); }
+  .bg-elevated { background-color: var(--bg-elevated); }
+  
+  .border-primary { border-color: var(--border-primary); }
+  .border-secondary { border-color: var(--border-secondary); }
+  .border-hover { border-color: var(--border-hover); }
+
+  /* Interactive hover states */
+  .hover-bg:hover { background-color: var(--bg-hover); }
+  .hover-border:hover { border-color: var(--border-hover); }
+
+  /* Route Selector with theme support */
+  .route-selector {
+    @apply flex flex-wrap gap-2;
+  }
+
+  .route-selector input[type="radio"] {
+    @apply absolute opacity-0;
+  }
+
+  .route-option {
+    @apply px-4 py-2 bg-[var(--bg-tertiary)] border border-[var(--border-primary)];
+    @apply rounded-md text-xs font-medium cursor-pointer transition-all duration-200;
+    @apply select-none text-[var(--text-primary)];
+  }
+
+  .route-option:hover {
+    @apply border-[var(--accent)] bg-[var(--bg-hover)];
+  }
+
+  .route-selector input[type="radio"]:checked + .route-option {
+    @apply bg-[var(--accent)] text-white border-[var(--accent)];
+  }
+
+  .route-selector input[type="radio"]:disabled + .route-option {
+    @apply opacity-50 cursor-not-allowed text-[var(--text-disabled)];
+  }
+
+  .route-auto {
+    @apply border-dashed;
+  }
+
+  .route-selector input[type="radio"]:checked + .route-auto {
+    @apply bg-[var(--bg-tertiary)] text-[var(--text-primary)] border-[var(--accent)] border-solid;
+  }
+
+  /* Toggle Switch with theme support */
+  .toggle-group {
+    @apply flex items-center mb-3;
+  }
+
+  .toggle-item {
+    @apply flex items-center gap-2;
+  }
+
+  .toggle-switch {
+    @apply relative w-11 h-6 bg-[var(--bg-tertiary)] border border-[var(--border-primary)] rounded-full cursor-pointer transition-colors;
+  }
+
+  .toggle-switch input {
+    @apply absolute opacity-0;
+  }
+
+  .toggle-slider {
+    @apply absolute top-0.5 left-0.5 w-5 h-5 bg-[var(--text-muted)] rounded-full transition-all;
+  }
+
+  .toggle-switch input:checked ~ .toggle-slider {
+    @apply translate-x-5 bg-white;
+  }
+
+  .toggle-switch input:checked + .toggle-switch {
+    @apply bg-[var(--accent)] border-[var(--accent)];
+  }
+
+  .toggle-label {
+    @apply text-sm text-[var(--text-primary)];
+  }
+
+  /* Buttons with improved dark mode */
+  .button-group {
+    @apply flex gap-3;
+  }
+
+  .btn {
+    @apply px-6 py-3.5 bg-[var(--accent)] text-white border-none rounded-lg;
+    @apply text-sm font-medium cursor-pointer transition-all duration-200;
+    @apply uppercase tracking-wider;
+  }
+
+  .btn-primary {
+    @apply flex-1;
+  }
+
+  .btn-secondary {
+    @apply flex-initial min-w-[100px] bg-[var(--bg-tertiary)] text-[var(--text-primary)];
+    @apply border border-[var(--border-primary)];
+  }
+
+  .btn:hover:not(:disabled) {
+    @apply -translate-y-0.5 bg-[var(--accent-hover)];
+    box-shadow: 0 5px 15px rgba(21, 47, 47, 0.4);
+  }
+
+  .btn-secondary:hover:not(:disabled) {
+    @apply bg-[var(--bg-hover)] border-[var(--accent)];
+  }
+
+  .btn:disabled {
+    @apply opacity-50 cursor-not-allowed;
+  }
+
+  /* Dark mode button adjustments */
+  [data-theme="dark"] .btn {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+
+  [data-theme="dark"] .btn:hover:not(:disabled) {
+    box-shadow: 0 5px 20px rgba(26, 64, 64, 0.5);
+  }
+
+  /* Loading Button Animation - Theme aware */
+  .btn-loading {
+    @apply relative overflow-hidden;
+    background: linear-gradient(90deg, var(--accent) 0%, var(--accent-hover) 50%, var(--accent) 100%);
+    background-size: 200% 100%;
+    animation: shimmer 2s infinite;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  /* Loading Spinner */
+  .spinner {
+    @apply inline-block w-4 h-4;
+    background: linear-gradient(90deg, transparent 0%, transparent 33%, currentColor 33%, currentColor 66%, transparent 66%);
+    animation: block-slide 1s linear infinite;
+  }
+
+  @keyframes block-slide {
+    to { transform: translateX(12px); }
+  }
+
+  /* Error Message */
+  .error-message {
+    @apply text-[var(--status-error)] text-sm mt-2;
+  }
+
+  /* Response Area with theme support */
+  .response-area {
+    animation: slideIn 0.3s ease-out;
+  }
+
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .response-header {
+    @apply flex justify-between items-center mb-4 pb-4 border-b border-[var(--border-secondary)];
+  }
+
+  .response-content {
+    @apply bg-[var(--bg-primary)] border border-[var(--border-secondary)] rounded-lg p-6;
+    @apply text-sm leading-relaxed;
+  }
+
+  /* Navigation with theme support */
+  nav {
+    @apply bg-[var(--bg-secondary)] border-b border-[var(--border-primary)];
+  }
+
+  /* Container */
+  .container {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  /* Status badges with proper contrast */
+  .status-badge {
+    @apply flex items-center gap-2 text-sm font-medium;
+  }
+
+  .status-dot {
+    @apply w-2 h-2 rounded-full;
+  }
+
+  .status-success { @apply bg-[var(--status-success)]; }
+  .status-error { @apply bg-[var(--status-error)]; }
+  .status-warning { @apply bg-[var(--status-warning)]; }
+  .status-info { @apply bg-[var(--status-info)]; }
+  
+  /* Responsive adjustments */
+  @media (max-width: 640px) {
+    .card {
+      @apply p-3 mb-3;
+    }
+    
+    .form-group {
+      @apply mb-3;
+    }
+    
+    .form-textarea {
+      @apply min-h-[100px];
+    }
+    
+    .route-selector {
+      @apply gap-1.5;
+    }
+    
+    .route-option {
+      @apply px-2 py-1.5 text-xs;
+    }
+    
+    .button-group {
+      @apply flex-col gap-2;
+    }
+    
+    .btn {
+      @apply w-full py-3 px-4;
+    }
+    
+    .btn-secondary {
+      @apply w-full;
+    }
+  }
+}
+
+/* Embedded mode styles - unchanged from original */
+.embedded-mode {
+  overflow-x: hidden;
+}
+
+.embedded-dashboard {
+  min-height: auto !important;
+}
+
+/* Force ALL containers and width constraints to 100% */
+.embedded-mode .container,
+.embedded-mode [class*="max-w-"],
+.embedded-mode .mx-auto {
+  max-width: 100% !important;
+  width: 100% !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  padding-left: 1rem !important;
+  padding-right: 1rem !important;
+}
+
+/* Rest of embedded mode styles remain the same... */

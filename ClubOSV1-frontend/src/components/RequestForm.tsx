@@ -1,0 +1,1595 @@
+import React, { useState, useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { useRequestSubmission, useNotifications, useDemoMode } from '@/state/hooks';
+import { useSettingsState, useAuthState } from '@/state/useStore';
+import { canAccessRoute, getRestrictedTooltip } from '@/utils/roleUtils';
+import type { UserRequest, RequestRoute } from '@/types/request';
+import { Lock, ThumbsUp, ThumbsDown, ChevronDown, ChevronRight, Send, Clock, MessageCircle, Camera, X, Receipt } from 'lucide-react';
+import { useRouter } from 'next/router';
+import { http } from '@/api/http';
+import { ResponseDisplay } from './ResponseDisplay';
+import { ResponseDisplaySimple } from './ResponseDisplaySimple';
+import { tokenManager } from '@/utils/tokenManager';
+import logger from '@/services/logger';
+import PrioritySlider from './ui/PrioritySlider';
+
+// Add keyframes for button animation
+const shimmerKeyframes = `
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  @keyframes sweep {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+  @keyframes block-wave {
+    0%, 60%, 100% {
+      transform: scaleY(0.5);
+      opacity: 0.3;
+    }
+    30% {
+      transform: scaleY(1);
+      opacity: 1;
+    }
+  }
+`;
+
+interface FormData {
+  requestDescription: string;
+  location: string;
+  toneConversion?: string;
+}
+
+const RequestForm: React.FC = () => {
+  const router = useRouter();
+  
+  // Initialize state with consistent defaults
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+  const [smartAssistEnabled, setSmartAssistEnabled] = useState(true);
+  const [routePreference, setRoutePreference] = useState<RequestRoute>('Auto');
+  const [showResponse, setShowResponse] = useState(false);
+  const [isNewSubmission, setIsNewSubmission] = useState(false);
+  const [loadingStartTime, setLoadingStartTime] = useState<number | null>(null);
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const [convertedTone, setConvertedTone] = useState<string>('');
+  const [isConvertingTone, setIsConvertingTone] = useState(false);
+  const [isTicketMode, setIsTicketMode] = useState(false);
+  const [isKnowledgeMode, setIsKnowledgeMode] = useState(false);
+  const [isReceiptMode, setIsReceiptMode] = useState(false);
+  const [ticketPriority, setTicketPriority] = useState<'low' | 'medium' | 'high' | 'urgent'>('medium');
+  const [ticketCategory, setTicketCategory] = useState<'facilities' | 'tech'>('facilities');
+  const [lastRequestData, setLastRequestData] = useState<FormData | null>(null);
+  const [slackReplies, setSlackReplies] = useState<any[]>([]);
+  const [isWaitingForReply, setIsWaitingForReply] = useState(false);
+  const [lastSlackThreadTs, setLastSlackThreadTs] = useState<string | null>(null);
+  const [showAdvancedRouting, setShowAdvancedRouting] = useState(false);
+  const [showLocationSelector, setShowLocationSelector] = useState(false);
+  const [selectedLocation, setSelectedLocation] = useState('');
+  const [replyText, setReplyText] = useState('');
+  const [sendingReply, setSendingReply] = useState(false);
+  const [conversationExpanded, setConversationExpanded] = useState(true);
+  const [photoAttachments, setPhotoAttachments] = useState<string[]>([]);
+  const [isPersonalCard, setIsPersonalCard] = useState(false);
+
+  const { preferences } = useSettingsState();
+  const { user } = useAuthState();
+  const { 
+    isSubmitting, 
+    lastResponse, 
+    error,
+    submitRequest,
+    resetRequestState,
+    setLastResponse 
+  } = useRequestSubmission();
+  const { notify } = useNotifications();
+  const { demoMode, runDemo } = useDemoMode();
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    watch,
+    setValue,
+    formState: { errors },
+  } = useForm<FormData>();
+
+  const requestDescription = watch('requestDescription');
+  const toneConversion = watch('toneConversion');
+
+  // Photo management functions - iOS compatible with canvas compression
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Check raw file size before processing (allow larger files, we'll compress)
+    const maxFileSizeMB = 15;
+    if (file.size > maxFileSizeMB * 1024 * 1024) {
+      notify('error', `Photo too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Max ${maxFileSizeMB}MB.`);
+      return;
+    }
+
+    // Show processing feedback
+    notify('info', 'Processing image...');
+
+    // Use createObjectURL + Image + Canvas for iOS HEIC compatibility
+    // This approach converts HEIC to JPEG and compresses large images
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+
+      // Calculate dimensions (max 2000px on longest side for receipt readability)
+      const maxDimension = 2000;
+      let { width, height } = img;
+      if (width > maxDimension || height > maxDimension) {
+        if (width > height) {
+          height = Math.round((height / width) * maxDimension);
+          width = maxDimension;
+        } else {
+          width = Math.round((width / height) * maxDimension);
+          height = maxDimension;
+        }
+      }
+
+      // Draw to canvas and compress as JPEG
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        notify('error', 'Failed to process image');
+        return;
+      }
+      ctx.drawImage(img, 0, 0, width, height);
+
+      // Convert to JPEG with 80% quality (good balance for OCR)
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+
+      // Check compressed size (5MB base64 limit)
+      if (dataUrl.length > 5_000_000) {
+        notify('error', 'Photo still too large after compression. Please use camera instead.');
+        return;
+      }
+
+      setPhotoAttachments([...photoAttachments, dataUrl]);
+      notify('success', 'Photo ready!');
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      notify('error', 'Failed to load image. Try using the camera instead.');
+    };
+
+    img.src = objectUrl;
+  };
+
+  const removePhoto = (index: number) => {
+    setPhotoAttachments(photoAttachments.filter((_, i) => i !== index));
+  };
+
+  const routes: RequestRoute[] = ['Auto', 'Emergency', 'Booking&Access', 'TechSupport', 'BrandTone'];
+  
+  // Route access mapping
+  const routeAccessMap: Record<RequestRoute, string> = {
+    'Auto': 'llm_request',
+    'Emergency': 'emergency',
+    'Booking&Access': 'bookings',
+    'TechSupport': 'tech_support',
+    'BrandTone': 'brand_tone'
+  };
+
+  // Set mounted state
+  useEffect(() => {
+    setIsMounted(true);
+    // Set route preference from settings after mount
+    if (preferences.defaultRoute) {
+      setRoutePreference(preferences.defaultRoute);
+    }
+    // Load advanced routing state
+    const savedRoutingState = localStorage.getItem('showAdvancedRouting');
+    if (savedRoutingState !== null) {
+      setShowAdvancedRouting(savedRoutingState === 'true');
+    }
+  }, [preferences.defaultRoute]);
+
+  // Save advanced routing preference when it changes
+  useEffect(() => {
+    if (isMounted) {
+      localStorage.setItem('showAdvancedRouting', String(showAdvancedRouting));
+    }
+  }, [showAdvancedRouting, isMounted]);
+
+  // Check for ticket query parameter and text on mount (client-side only)
+  useEffect(() => {
+    if (isMounted) {
+      // Check for ticket mode
+      if (router.query.ticket === 'true' || router.query.ticketMode === 'true') {
+        setIsTicketMode(true);
+        setSmartAssistEnabled(false);
+      }
+
+      // Check for pre-filled text
+      if (router.query.text && typeof router.query.text === 'string') {
+        const decodedText = decodeURIComponent(router.query.text);
+        setValue('requestDescription', decodedText);
+      }
+
+      // Remove the query parameters from URL without reload
+      if (router.query.ticket || router.query.ticketMode || router.query.text) {
+        router.replace('/', undefined, { shallow: true });
+      }
+    }
+  }, [router.query.ticket, router.query.ticketMode, router.query.text, router, isMounted, setValue]);
+
+  // Handle demo mode
+  useEffect(() => {
+    if (demoMode) {
+      setValue('requestDescription', 'Customer says equipment is frozen');
+      setValue('location', 'Halifax Bay 3');
+      setRoutePreference('TechSupport');
+      setSmartAssistEnabled(true);
+    }
+  }, [demoMode, setValue]);
+
+  // Handle error notifications
+  useEffect(() => {
+    if (error) {
+      notify('error', error);
+    }
+  }, [error, notify]);
+
+  // Handle loading timer
+  useEffect(() => {
+    if (isProcessing && loadingStartTime) {
+      const timer = setInterval(() => {
+        setElapsedTime(Math.floor((Date.now() - loadingStartTime) / 1000));
+      }, 100);
+      return () => clearInterval(timer);
+    } else {
+      setElapsedTime(0);
+    }
+  }, [isProcessing, loadingStartTime]);
+
+  // Handle response display
+  useEffect(() => {
+    if (!isMounted) return; // Skip on server-side
+    
+    if (lastResponse && isNewSubmission) {
+      logger.debug('Full lastResponse object:', JSON.stringify(lastResponse, null, 2));
+      
+      setShowResponse(true);
+      setIsNewSubmission(false); // Reset the flag
+      setLoadingStartTime(null); // Reset loading timer
+      setIsProcessing(false); // Stop loading state
+      notify('success', smartAssistEnabled ? 'Request processed successfully!' : 'Message sent to Slack!');
+      
+      // Smooth scroll to response with offset
+      setTimeout(() => {
+        const element = document.getElementById('response-area');
+        if (element) {
+          const elementPosition = element.getBoundingClientRect().top;
+          const offsetPosition = elementPosition + window.pageYOffset - 100; // 100px offset from top
+          
+          window.scrollTo({
+            top: offsetPosition,
+            behavior: 'smooth'
+          });
+        }
+      }, 200);
+    }
+  }, [lastResponse, isNewSubmission, smartAssistEnabled, notify, isMounted]);
+
+  const onSubmit = async (data: FormData) => {
+    if (isMounted) {
+      logger.debug('Form submitted!', data);
+    }
+    
+    // If in ticket mode, create a ticket instead
+    if (isTicketMode) {
+      setIsProcessing(true);
+      try {
+        const token = isMounted ? tokenManager.getToken() : null;
+        const response = await http.post(
+          `tickets`,
+          {
+            title: data.requestDescription.substring(0, 100), // First 100 chars as title
+            description: data.requestDescription,
+            category: ticketCategory,
+            priority: ticketPriority,
+            location: data.location || undefined,
+            photo_urls: photoAttachments.length > 0 ? photoAttachments : undefined,
+          },
+
+        );
+        
+        if (response.data.success) {
+          notify('success', 'Ticket created successfully!');
+          reset();
+          // Redirect to ticket center
+          setTimeout(() => router.push('/tickets'), 1000);
+        }
+      } catch (error) {
+        logger.error('Failed to create ticket:', error);
+        notify('error', 'Failed to create ticket');
+      } finally {
+        setIsProcessing(false);
+      }
+      return;
+    }
+    
+    // If in knowledge mode, add knowledge to the system
+    if (isKnowledgeMode) {
+      setIsProcessing(true);
+      try {
+        const token = isMounted ? tokenManager.getToken() : null;
+        
+        // Use the existing knowledge-router endpoint
+        const response = await http.post(
+          `knowledge-router/parse-and-route`,
+          { input: data.requestDescription },
+
+        );
+        
+        if (response.data.success) {
+          const parsed = response.data.data.parsed;
+          const openAIStatus = response.data.data.assistantUpdateStatus;
+          const openAIError = response.data.data.openAIUpdateError;
+          
+          // Show appropriate notification based on OpenAI update status
+          if (openAIStatus === 'success') {
+            notify('success', 'Knowledge added and OpenAI assistant updated successfully!');
+          } else if (openAIStatus === 'failed') {
+            notify('warning', `Knowledge saved locally but OpenAI update failed: ${openAIError || 'Check logs'}`);
+          } else {
+            notify('success', 'Knowledge added successfully!');
+          }
+          
+          reset();
+          
+          // Show what was added with OpenAI status
+          setLastResponse({
+            response: `${openAIStatus === 'success' ? '✅' : '⚠️'} Knowledge ${openAIStatus === 'success' ? 'Added & Synced' : 'Saved Locally'}!\n\nCategory: ${parsed.category}\nTarget Assistant: ${parsed.target_assistant}\nIntent: ${parsed.intent}\n\nValue: "${parsed.value}"\n\nOpenAI Update: ${openAIStatus === 'success' ? '✅ Successful' : `❌ Failed (${openAIError || 'See logs'})`}\nDatabase: ✅ Saved\n\n${openAIStatus === 'success' ? 'The AI will now use this knowledge when answering related questions.' : 'Knowledge saved locally but may not be available to AI until sync is fixed.'}`,
+            confidence: openAIStatus === 'success' ? 1.0 : 0.5,
+            route: 'Knowledge',
+            status: openAIStatus === 'success' ? 'completed' : 'partial'
+          } as any);
+          setShowResponse(true);
+          setIsNewSubmission(true);
+        } else {
+          notify('error', response.data.error || 'Failed to add knowledge');
+        }
+      } catch (error) {
+        logger.error('Knowledge submission error:', error);
+        if (error && typeof error === 'object' && 'response' in error) {
+          const err = error as any;
+          notify('error', err.response?.data?.error || 'Failed to add knowledge');
+        } else {
+          notify('error', 'Failed to add knowledge. Please check the format and try again.');
+        }
+      } finally {
+        setIsProcessing(false);
+      }
+      return;
+    }
+
+    // If in receipt mode, process with OCR through LLM
+    if (isReceiptMode) {
+      setIsProcessing(true);
+      try {
+        const token = isMounted ? tokenManager.getToken() : null;
+
+        // Check if there's a photo attachment (receipt image)
+        if (photoAttachments.length === 0) {
+          notify('error', 'Please upload a receipt photo to scan');
+          setIsProcessing(false);
+          return;
+        }
+
+        // Use the LLM endpoint with special prefix for receipt OCR
+        const response = await http.post(
+          `llm/request`,
+          {
+            requestDescription: `[RECEIPT OCR]\n${data.requestDescription || 'Process this receipt'}`,
+            imageData: photoAttachments[0], // Send the first photo as base64
+            routePreference: 'Receipt',
+            smartAssistEnabled: true,
+            isPersonalCard: isPersonalCard // Include personal card flag
+          },
+        );
+
+        if (response.data.success) {
+          const ocrResult = response.data.data;
+
+          // Build receipts array so ReceiptDisplay renders with edit/reconcile/delete
+          const receiptsArray = ocrResult.receiptId ? [{
+            id: ocrResult.receiptId,
+            vendor: ocrResult.extractedData?.vendor || null,
+            amount: ocrResult.extractedData?.totalAmount || null,
+            date: ocrResult.extractedData?.purchaseDate || null,
+            category: ocrResult.extractedData?.category || null,
+            location: null,
+            hasPhoto: true,
+            reconciled: false,
+          }] : undefined;
+
+          // Show the extracted receipt data
+          setLastResponse({
+            llmResponse: {
+              response: ocrResult.response,
+              confidence: ocrResult.confidence || 1.0,
+              route: 'Receipt OCR',
+              status: ocrResult.isDuplicate ? 'duplicate' : 'completed',
+              dataSource: 'OpenAI Vision'
+            },
+            receipts: receiptsArray,
+            status: ocrResult.isDuplicate ? 'duplicate' : 'completed',
+            botRoute: 'Receipt OCR'
+          } as any);
+
+          setShowResponse(true);
+          setIsNewSubmission(true);
+
+          // Show appropriate notification based on duplicate status
+          if (ocrResult.isDuplicate) {
+            notify('warning', 'This receipt was already uploaded!');
+          } else {
+            notify('success', 'Receipt scanned successfully!');
+          }
+
+          // NOTE: Receipt is already saved to database by the LLM route (llm.ts:199-242)
+          // The receiptId is returned in ocrResult.receiptId - no need to save again
+        } else {
+          notify('error', response.data.error || 'Failed to scan receipt');
+        }
+      } catch (error) {
+        logger.error('Receipt OCR error:', error);
+        notify('error', 'Failed to scan receipt. Please try again.');
+      } finally {
+        setIsProcessing(false);
+      }
+      return;
+    }
+
+    // Clear everything immediately when starting a new request
+    setShowResponse(false);
+    setLastResponse(null); // Clear the response from state
+    resetRequestState(); // Clear old response immediately
+    setIsNewSubmission(true); // Mark this as a new submission
+    setLoadingStartTime(Date.now()); // Start loading timer
+    setIsProcessing(true); // Start loading state
+    setLastRequestData(data); // Store the request data for feedback
+    
+    // Gentle nudge scroll to loading area
+    setTimeout(() => {
+      const element = document.getElementById('response-area');
+      if (element) {
+        const elementPosition = element.getBoundingClientRect().top;
+        // Only scroll if element is below the viewport
+        if (elementPosition > window.innerHeight - 200) {
+          const offsetPosition = elementPosition + window.pageYOffset - 150; // 150px offset for a gentle nudge
+          
+          window.scrollTo({
+            top: offsetPosition,
+            behavior: 'smooth'
+          });
+        }
+      }
+    }, 100);
+
+    const request: UserRequest = {
+      requestDescription: data.requestDescription,
+      location: data.location || undefined,
+      routePreference: smartAssistEnabled ? routePreference : undefined,
+      smartAssistEnabled,
+    } as any;
+
+    if (isMounted) {
+      logger.debug('About to submit request:', request);
+      logger.debug('isSubmitting before:', isSubmitting);
+    }
+
+    try {
+      await submitRequest(request);
+    } catch (error) {
+      logger.error('Submit error:', error);
+      setIsProcessing(false); // Stop loading on error
+      // Error is handled by the hook and notifications
+    }
+  };
+
+  // Start polling for Slack replies when a message is sent to Slack
+  useEffect(() => {
+    if (showResponse && lastResponse && !smartAssistEnabled && !isWaitingForReply) {
+      setIsWaitingForReply(true);
+      // Try to find the thread_ts from the response
+      // For now, we'll poll the conversations endpoint to find the latest
+      pollForSlackReplies();
+    }
+  }, [showResponse, lastResponse, smartAssistEnabled]);
+
+  const pollForSlackReplies = async () => {
+    // Get thread_ts from the last response (when Smart Assist is off)
+    const threadTs = lastResponse?.slackThreadTs;
+    
+    if (!threadTs) {
+      logger.error('No thread timestamp available for polling');
+      setIsWaitingForReply(false);
+      return;
+    }
+    
+    logger.debug('Starting to poll for replies using thread_ts:', threadTs);
+    setLastSlackThreadTs(threadTs);
+    
+    let pollCount = 0;
+    const maxPolls = 60; // Poll for 5 minutes (60 polls * 5 seconds)
+    
+    const poll = async () => {
+      try {
+        logger.debug(`Polling attempt ${pollCount + 1}/${maxPolls} for thread ${threadTs}`);
+        
+        // Use the specific thread_ts to check for replies directly from Slack
+        const repliesResponse = await http.get(`slack/thread-replies/${threadTs}`);
+        
+        if (repliesResponse.data.success && repliesResponse.data.data.replies.length > 0) {
+          logger.debug('Found replies:', repliesResponse.data.data.replies);
+          setSlackReplies(repliesResponse.data.data.replies);
+          
+          // Don't stop waiting for replies - staff might send multiple messages
+          // Continue polling to check for new replies
+          logger.debug('Continuing to poll for additional replies...');
+        } else {
+          logger.debug('No replies yet, continuing to poll...');
+        }
+        
+        // Continue polling if no replies found and haven't exceeded max polls
+        pollCount++;
+        if (pollCount < maxPolls) {
+          setTimeout(poll, 5000); // Poll every 5 seconds
+        } else {
+          logger.debug('Polling timeout reached, stopping');
+          setIsWaitingForReply(false); // Stop waiting after max time
+        }
+      } catch (error) {
+        logger.error('Error polling for replies:', error);
+        // Don't stop polling immediately on error, could be temporary
+        pollCount++;
+        if (pollCount < maxPolls) {
+          setTimeout(poll, 5000); // Continue polling
+        } else {
+          setIsWaitingForReply(false);
+        }
+      }
+    };
+    
+    // Start polling after a short delay
+    setTimeout(poll, 2000);
+  };
+
+  // Send reply to Slack thread
+  const sendReplyToSlack = async () => {
+    if (!replyText.trim() || !lastSlackThreadTs || sendingReply) return;
+    
+    setSendingReply(true);
+    try {
+      const token = isMounted ? tokenManager.getToken() : null;
+      const response = await http.post(`slack/reply`, {
+        thread_ts: lastSlackThreadTs,
+        text: replyText.trim()
+      });
+      
+      if (response.data.success) {
+        // Add the reply to the conversation
+        const newReply = {
+          ts: Date.now().toString(),
+          user_name: 'You',
+          user: user?.name || 'ClubOS User',
+          text: replyText.trim(),
+          timestamp: new Date().toISOString(),
+          is_from_clubos: true
+        };
+        setSlackReplies([...slackReplies, newReply]);
+        setReplyText('');
+        notify('success', 'Reply sent to Slack');
+      } else {
+        notify('error', 'Failed to send reply');
+      }
+    } catch (error: any) {
+      logger.error('Error sending reply to Slack:', error);
+      
+      // Check for specific error types
+      if (error.response?.data?.isWebhookThread) {
+        notify('error', 'Replies not available for webhook-only messages. Slack Bot Token required.');
+        // Hide the reply input since it won't work
+        setLastSlackThreadTs(null);
+      } else if (error.response?.data?.configurationNeeded) {
+        notify('error', 'Two-way communication not available. Slack configuration required.');
+        // Hide the reply input since it won't work
+        setLastSlackThreadTs(null);
+      } else {
+        notify('error', error.response?.data?.error || 'Failed to send reply to Slack');
+      }
+    } finally {
+      setSendingReply(false);
+    }
+  };
+
+  const handleReset = () => {
+    // Reset form fields
+    reset();
+    
+    // Reset all state to defaults
+    setRoutePreference('Auto'); // Reset to Auto route
+    setSelectedLocation(''); // Clear location selection
+    setShowAdvancedRouting(false); // Close Advanced selector if open
+    setShowLocationSelector(false); // Close Location selector if open
+    setSmartAssistEnabled(true); // Enable Smart Assist by default
+    setPhotoAttachments([]); // Clear photo attachments
+    setShowResponse(false);
+    resetRequestState();
+    setConvertedTone('');
+    setIsTicketMode(false); // Reset to request mode
+    setIsKnowledgeMode(false); // Reset knowledge mode
+    setIsReceiptMode(false); // Reset receipt mode
+    setIsPersonalCard(false); // Reset personal card flag
+    setTicketPriority('medium'); // Reset ticket priority
+    setTicketCategory('facilities'); // Reset ticket category
+    setLastRequestData(null);
+    setIsProcessing(false);
+    setLoadingStartTime(null);
+    setElapsedTime(0);
+    setIsNewSubmission(false);
+    setSlackReplies([]);
+    setIsWaitingForReply(false);
+    setLastSlackThreadTs(null);
+    
+    // Clear any notifications
+    notify('info', 'Form reset to defaults');
+  };
+
+
+  // Handle tone conversion
+  const handleToneConversion = async () => {
+    if (!toneConversion || toneConversion.trim().length === 0) return;
+    
+    setIsConvertingTone(true);
+    try {
+      const response = await http.post(`tone/convert`, {
+        text: toneConversion
+      });
+      
+      if (response.data.success) {
+        setConvertedTone(response.data.data.convertedText);
+        notify('success', 'Tone converted!');
+      }
+    } catch (error) {
+      logger.error('Tone conversion failed:', error);
+      notify('error', 'Failed to convert tone');
+    } finally {
+      setIsConvertingTone(false);
+    }
+  };
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Escape to reset
+      if (e.key === 'Escape') {
+        handleReset();
+      }
+      
+      // Ctrl/Cmd + Enter to submit
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        handleSubmit(onSubmit)();
+      }
+      
+      // Ctrl/Cmd + D for demo
+      if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
+        e.preventDefault();
+        runDemo();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [handleSubmit, runDemo, handleReset, onSubmit]);
+
+  return (
+    <div className="w-full">
+      {/* Inject keyframes */}
+      <style dangerouslySetInnerHTML={{ __html: shimmerKeyframes }} />
+      
+      {/* Main Form Card */}
+      <div className="card group" data-terminal="clubos-terminal">
+        {/* Title Header with Update button on right */}
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-lg font-semibold">ClubOS Terminal</h3>
+          <div className="flex items-center gap-2">
+            {/* Receipt Upload button - activates receipt mode */}
+            <button
+              type="button"
+              onClick={() => {
+                setIsReceiptMode(true);
+                setIsKnowledgeMode(false);
+                setIsTicketMode(false);
+                setPhotoAttachments([]); // Clear any existing photos
+              }}
+              className={`px-4 py-1.5 text-xs font-medium rounded-full transition-all transform hover:scale-105
+                bg-[var(--bg-tertiary)] text-[var(--text-secondary)] border border-[var(--border-secondary)]
+                hover:border-green-500/50 hover:bg-green-500/10 hover:text-green-600`}
+              disabled={isSubmitting || demoMode}
+            >
+              <Receipt className="inline w-3 h-3 mr-1" />
+              {isReceiptMode ? '✓ Receipt Mode' : 'Receipt'}
+            </button>
+
+            {/* Update Knowledge button - top right */}
+            <button
+              type="button"
+              onClick={() => {
+                setIsKnowledgeMode(true);
+                setIsTicketMode(false);
+                // Keep smartAssistEnabled as is (don't change the toggle)
+              }}
+              className={`px-4 py-1.5 text-xs font-medium rounded-full transition-all transform hover:scale-105
+                bg-[var(--bg-tertiary)] text-[var(--text-secondary)] border border-[var(--border-secondary)]
+                hover:border-[#4A154B]/50 hover:bg-[#4A154B]/10 hover:text-[#4A154B]`}
+              disabled={isSubmitting || demoMode}
+            >
+              {isKnowledgeMode ? '✓ Update Mode' : '+ Update'}
+            </button>
+          </div>
+        </div>
+        
+        <form onSubmit={handleSubmit(onSubmit)}>
+
+          {/* Task Description - No label, just placeholder */}
+          <div className="form-group">
+            <textarea
+              id="taskInput"
+              {...register('requestDescription', {
+                required: 'Please enter a request description',
+                minLength: {
+                  value: 10,
+                  message: 'Please provide at least 10 characters',
+                },
+              })}
+              className="form-textarea"
+              placeholder={
+                isKnowledgeMode ? "Add knowledge: e.g., 'Gift cards are available at website.com/giftcards for $25, $50, or $100'" :
+                isReceiptMode ? "Add notes about this receipt (optional)..." :
+                isTicketMode ? "Describe the issue for the support ticket..." :
+                "Describe your request (e.g., power outage, equipment frozen, booking cancellation...)"
+              }
+              disabled={isSubmitting || demoMode}
+              rows={2}
+            />
+            {errors.requestDescription && (
+              <p className="error-message">{errors.requestDescription.message}</p>
+            )}
+          </div>
+
+          {/* Tone Conversion Input - HIDDEN FOR NOW */}
+          {/* <div className="form-group">
+            <label className="form-label" htmlFor="toneInput">
+              Clubhouse Tone Converter
+            </label>
+            <div className="flex gap-2">
+              <input
+                id="toneInput"
+                {...register('toneConversion')}
+                type="text"
+                className="form-input flex-1"
+                placeholder="Type anything and convert it to Clubhouse's friendly tone..."
+                disabled={isConvertingTone}
+              />
+              <button
+                type="button"
+                onClick={handleToneConversion}
+                disabled={isConvertingTone || !toneConversion}
+                className="btn btn-secondary"
+              >
+                {isConvertingTone ? 'Converting...' : 'Convert'}
+              </button>
+            </div>
+            {convertedTone && (
+              <div className="mt-2 p-3 bg-[var(--accent)]/10 rounded-lg border border-[var(--accent)]/20">
+                <p className="text-sm text-[var(--accent)]">{convertedTone}</p>
+              </div>
+            )}
+          </div> */}
+
+          {/* Mode Toggle Row */}
+          <div className="mb-4">
+            {/* Mode Toggle - 3-way toggle with labels outside */}
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-[var(--text-muted)] font-medium">Ticket</span>
+              <div className="relative inline-block w-24">
+                <div className="flex bg-[var(--bg-tertiary)] border border-[var(--border-secondary)] rounded-full p-0.5">
+                  <div
+                    className={`absolute inset-y-0.5 transition-all duration-200 rounded-full ${
+                      isTicketMode ? 'bg-[#4A154B]' :
+                      !smartAssistEnabled ? 'bg-[#4A154B]' :
+                      'bg-[var(--accent)]'
+                    }`}
+                    style={{
+                      width: '33.33%',
+                      left: isTicketMode ? '0%' :
+                            smartAssistEnabled ? '33.33%' : '66.66%'
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsTicketMode(true);
+                      setSmartAssistEnabled(false);
+                      setIsKnowledgeMode(false);
+                    }}
+                    className="relative z-10 flex-1 py-1 text-xs transition-colors"
+                    disabled={isSubmitting || demoMode}
+                  >
+                    <span className={isTicketMode ? 'text-white' : 'text-[var(--text-secondary)]'}>
+                      •
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSmartAssistEnabled(true);
+                      setIsTicketMode(false);
+                      setIsKnowledgeMode(false);
+                    }}
+                    className="relative z-10 flex-1 py-1 text-xs transition-colors"
+                    disabled={isSubmitting || demoMode}
+                  >
+                    <span className={smartAssistEnabled && !isTicketMode && !isKnowledgeMode ? 'text-white' : 'text-[var(--text-secondary)]'}>
+                      AI
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSmartAssistEnabled(false);
+                      setIsTicketMode(false);
+                      setIsKnowledgeMode(false);
+                    }}
+                    className="relative z-10 flex-1 py-1 text-xs transition-colors"
+                    disabled={isSubmitting || demoMode}
+                  >
+                    <span className={!smartAssistEnabled && !isTicketMode && !isKnowledgeMode ? 'text-white' : 'text-[var(--text-secondary)]'}>
+                      •
+                    </span>
+                  </button>
+                </div>
+              </div>
+              <span className="text-xs text-[var(--text-muted)] font-medium">Human</span>
+
+              {/* Category Toggle - Only show when ticket mode is selected */}
+              {isTicketMode && (
+                <>
+                  <div className="ml-4 w-px h-4 bg-[var(--border-secondary)]" />
+                  <span className="text-xs text-[var(--text-muted)] font-medium">Facilities</span>
+                  <div className="relative inline-block w-16">
+                    <div className="flex bg-[var(--bg-tertiary)] border border-[var(--border-secondary)] rounded-full p-0.5">
+                      <div
+                        className="absolute inset-y-0.5 transition-all duration-200 rounded-full bg-[var(--accent)]"
+                        style={{
+                          width: '50%',
+                          left: ticketCategory === 'facilities' ? '0%' : '50%'
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setTicketCategory('facilities')}
+                        className="relative z-10 flex-1 py-1 text-xs transition-colors"
+                        disabled={isSubmitting || demoMode}
+                      >
+                        <span className={ticketCategory === 'facilities' ? 'text-white' : 'text-[var(--text-secondary)]'}>
+                          •
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTicketCategory('tech')}
+                        className="relative z-10 flex-1 py-1 text-xs transition-colors"
+                        disabled={isSubmitting || demoMode}
+                      >
+                        <span className={ticketCategory === 'tech' ? 'text-white' : 'text-[var(--text-secondary)]'}>
+                          •
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                  <span className="text-xs text-[var(--text-muted)] font-medium">Tech</span>
+                </>
+              )}
+              
+              {/* Advanced and Location Buttons - Mobile */}
+              {smartAssistEnabled && !isTicketMode && !isKnowledgeMode && (
+                <div className="sm:hidden flex items-center gap-2 ml-2">
+                  {!showAdvancedRouting && !showLocationSelector ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setShowAdvancedRouting(true)}
+                        className="text-xs text-[var(--text-secondary)] hover:text-[var(--accent)] transition-colors"
+                        style={{ fontFamily: 'Poppins, sans-serif' }}
+                        disabled={isSubmitting || demoMode}
+                      >
+                        {routePreference === 'Auto' ? 'Advanced' : routePreference.replace('&Access', '').replace('Support', '')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowLocationSelector(true)}
+                        className="text-xs text-[var(--text-secondary)] hover:text-[var(--accent)] transition-colors"
+                        style={{ fontFamily: 'Poppins, sans-serif' }}
+                        disabled={isSubmitting || demoMode}
+                      >
+                        {selectedLocation || 'Location'}
+                      </button>
+                    </>
+                  ) : showAdvancedRouting ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowAdvancedRouting(false)}
+                      className="text-xs text-[var(--text-primary)]"
+                    >
+                      ✕
+                    </button>
+                  ) : showLocationSelector ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowLocationSelector(false)}
+                      className="text-xs text-[var(--text-primary)]"
+                    >
+                      ✕
+                    </button>
+                  ) : null}
+                </div>
+              )}
+              
+              {/* Advanced and Location Buttons - Desktop */}
+              {smartAssistEnabled && !isTicketMode && !isKnowledgeMode && (
+                <div className="hidden sm:flex items-center gap-2 ml-4">
+                  {/* Advanced Button */}
+                  {!showAdvancedRouting ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowAdvancedRouting(true)}
+                      className="ml-2 text-xs text-[var(--text-secondary)] hover:text-[var(--accent)] transition-colors"
+                      style={{ fontFamily: 'Poppins, sans-serif' }}
+                      disabled={isSubmitting || demoMode}
+                    >
+                      {routePreference === 'Auto' ? 'Advanced' : routePreference.replace('&Access', '').replace('Support', '')}
+                    </button>
+                  ) : (
+                    <div className="ml-2 flex items-center gap-1">
+                      <span className="text-xs text-[var(--text-muted)]">Bot:</span>
+                      <div className="flex bg-[var(--bg-tertiary)] rounded-full p-0.5">
+                        {routes.map((route, index) => (
+                          <button
+                            key={route}
+                            type="button"
+                            onClick={() => {
+                              setRoutePreference(route);
+                              setShowAdvancedRouting(false);
+                            }}
+                            className={`px-2 py-0.5 text-xs transition-all rounded-full ${
+                              routePreference === route
+                                ? 'bg-[var(--accent)] text-white'
+                                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                            }`}
+                            disabled={isSubmitting || demoMode}
+                          >
+                            {route === 'Auto' ? 'Auto' : 
+                             route === 'Emergency' ? 'Emrg' :
+                             route === 'Booking&Access' ? 'Book' :
+                             route === 'TechSupport' ? 'Tech' : 'Tone'}
+                          </button>
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowAdvancedRouting(false)}
+                        className="ml-1 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
+                  
+                  {/* Location Button */}
+                  {!showLocationSelector ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowLocationSelector(true)}
+                      className="text-xs text-[var(--text-secondary)] hover:text-[var(--accent)] transition-colors"
+                      style={{ fontFamily: 'Poppins, sans-serif' }}
+                      disabled={isSubmitting || demoMode}
+                    >
+                      {selectedLocation || 'Location'}
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-[var(--text-muted)]">Location:</span>
+                      <div className="flex bg-[var(--bg-tertiary)] rounded-full p-0.5">
+                        {['Bedford', 'Dartmouth', 'Bayers Lake', 'Truro', 'Stratford', 'River Oaks'].map(loc => (
+                          <button
+                            key={loc}
+                            type="button"
+                            onClick={() => {
+                              setValue('location', loc);
+                              setSelectedLocation(loc);
+                              setShowLocationSelector(false);
+                            }}
+                            className={`px-2 py-0.5 text-xs transition-all rounded-full ${
+                              selectedLocation === loc
+                                ? 'bg-[var(--accent)] text-white'
+                                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                            }`}
+                            disabled={isSubmitting || demoMode}
+                          >
+                            {loc.replace(' Lake', '')}
+                          </button>
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowLocationSelector(false)}
+                        className="ml-1 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Receipt Mode - Photo Upload
+              NOTE: This is the ACTIVE receipt upload implementation.
+              The ReceiptUploadModalSimple component exists but is not currently used.
+              This inline approach was chosen for better UX integration with the terminal flow.
+          */}
+          {isReceiptMode && (
+            <div className="form-group">
+              <label className="form-label flex items-center gap-2">
+                <Camera className="w-4 h-4" />
+                Receipt Photo
+              </label>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handlePhotoUpload}
+                    className="hidden"
+                    id="receipt-photo-upload"
+                    disabled={isSubmitting}
+                  />
+                  <label
+                    htmlFor="receipt-photo-upload"
+                    className="px-4 py-2 bg-[var(--bg-tertiary)] border border-[var(--border-secondary)] rounded-lg text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--accent)] cursor-pointer transition-all"
+                  >
+                    <Camera className="inline w-4 h-4 mr-2" />
+                    {photoAttachments.length > 0 ? 'Change Receipt' : 'Upload Receipt'}
+                  </label>
+                  <span className="text-xs text-[var(--text-muted)]">
+                    Take a photo or upload a receipt image (max 5MB)
+                  </span>
+                </div>
+
+                {/* Photo preview */}
+                {photoAttachments.length > 0 && (
+                  <div className="relative group">
+                    <img
+                      src={photoAttachments[0]}
+                      alt="Receipt"
+                      className="w-full max-w-sm h-48 object-contain rounded-lg border border-[var(--border-secondary)] bg-[var(--bg-tertiary)]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setPhotoAttachments([])}
+                      className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+
+                {/* Personal Card Checkbox - Added for reimbursement tracking */}
+                {photoAttachments.length > 0 && (
+                  <div className="py-3 px-3 bg-[var(--bg-tertiary)] rounded-lg border border-[var(--border-secondary)]">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={isPersonalCard}
+                        onChange={(e) => setIsPersonalCard(e.target.checked)}
+                        className="w-5 h-5 rounded border-[var(--border-secondary)] text-[var(--accent)] focus:ring-[var(--accent)] focus:ring-offset-0 cursor-pointer"
+                        disabled={isSubmitting}
+                      />
+                      <div className="flex-1">
+                        <span className="text-sm font-medium text-[var(--text-primary)]">
+                          Purchased with personal card
+                        </span>
+                        <span className="block text-xs text-[var(--text-muted)] mt-0.5">
+                          Check this if you need reimbursement for a personal card purchase
+                        </span>
+                      </div>
+                    </label>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Ticket Options - Minimal Professional */}
+          {isTicketMode && (
+            <>
+              {/* Location Selector */}
+              <div className="form-group">
+                <label className="form-label">Location</label>
+
+                {/* Desktop - All locations in a row */}
+                <div className="hidden sm:flex gap-2">
+                  {['Bedford', 'Dartmouth', 'Bayers Lake', 'Truro', 'Stratford', 'River Oaks'].map((loc) => (
+                    <button
+                      key={loc}
+                      type="button"
+                      onClick={() => {
+                        setValue('location', loc);
+                        setSelectedLocation(loc);
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                        selectedLocation === loc
+                          ? 'bg-[var(--accent)] text-white'
+                          : 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)]'
+                      }`}
+                      disabled={isSubmitting || demoMode}
+                    >
+                      {loc}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Mobile - Dropdown */}
+                <div className="sm:hidden">
+                  <select
+                    value={selectedLocation}
+                    onChange={(e) => {
+                      setValue('location', e.target.value);
+                      setSelectedLocation(e.target.value);
+                    }}
+                    className="w-full px-3 py-2 bg-[var(--bg-secondary)] border border-[var(--border-secondary)] rounded-lg text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)]"
+                    disabled={isSubmitting || demoMode}
+                  >
+                    <option value="">Select location</option>
+                    {['Bayers Lake', 'Bedford', 'Dartmouth', 'Halifax', 'River Oaks', 'Stratford', 'Truro'].map((loc) => (
+                      <option key={loc} value={loc}>{loc}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Priority Level</label>
+                <PrioritySlider
+                  value={ticketPriority}
+                  onChange={setTicketPriority}
+                  disabled={isSubmitting || demoMode}
+                />
+              </div>
+
+              {/* Photo Attachments for Tickets */}
+              <div className="form-group">
+                <label className="form-label flex items-center gap-2">
+                  <Camera className="w-4 h-4" />
+                  Photo Attachments
+                </label>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handlePhotoUpload}
+                      className="hidden"
+                      id="ticket-photo-upload"
+                      disabled={isSubmitting}
+                    />
+                    <label
+                      htmlFor="ticket-photo-upload"
+                      className="px-4 py-2 bg-[var(--bg-tertiary)] border border-[var(--border-secondary)] rounded-lg text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--accent)] cursor-pointer transition-all"
+                    >
+                      <Camera className="inline w-4 h-4 mr-2" />
+                      Add Photo
+                    </label>
+                    <span className="text-xs text-[var(--text-muted)]">
+                      Document issues visually (max 5MB per photo)
+                    </span>
+                  </div>
+
+                  {/* Photo previews */}
+                  {photoAttachments.length > 0 && (
+                    <div className="flex gap-2 flex-wrap mt-2">
+                      {photoAttachments.map((photo, index) => (
+                        <div key={index} className="relative group">
+                          <img
+                            src={photo}
+                            alt={`Attachment ${index + 1}`}
+                            className="w-20 h-20 object-cover rounded-lg border border-[var(--border-secondary)]"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removePhoto(index)}
+                            className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Route Selector for Mobile - Below toggle */}
+          {smartAssistEnabled && !isTicketMode && showAdvancedRouting && (
+            <div className="sm:hidden mb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-[var(--text-muted)]">Bot:</span>
+                <div className="flex bg-[var(--bg-tertiary)] rounded-full p-0.5 flex-1 overflow-x-auto">
+                  {routes.map((route) => (
+                    <button
+                      key={route}
+                      type="button"
+                      onClick={() => {
+                        setRoutePreference(route);
+                        setShowAdvancedRouting(false);
+                      }}
+                      className={`px-3 py-1 text-xs transition-all rounded-full whitespace-nowrap ${
+                        routePreference === route
+                          ? 'bg-[var(--accent)] text-white'
+                          : 'text-[var(--text-secondary)]'
+                      }`}
+                      disabled={isSubmitting || demoMode}
+                    >
+                      {route === 'Auto' ? 'Auto' : 
+                       route === 'Emergency' ? 'Emergency' :
+                       route === 'Booking&Access' ? 'Booking' :
+                       route === 'TechSupport' ? 'Tech' : 'Brand'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Location Selector for Mobile - Below toggle */}
+          {smartAssistEnabled && !isTicketMode && showLocationSelector && (
+            <div className="sm:hidden mb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-[var(--text-muted)]">Location:</span>
+                <div className="flex bg-[var(--bg-tertiary)] rounded-full p-0.5 flex-1 overflow-x-auto">
+                  {['Bedford', 'Dartmouth', 'Bayers Lake', 'Truro', 'Stratford', 'River Oaks'].map(loc => (
+                    <button
+                      key={loc}
+                      type="button"
+                      onClick={() => {
+                        setValue('location', loc);
+                        setSelectedLocation(loc);
+                        setShowLocationSelector(false);
+                      }}
+                      className={`px-3 py-1 text-xs transition-all rounded-full whitespace-nowrap ${
+                        selectedLocation === loc
+                          ? 'bg-[var(--accent)] text-white'
+                          : 'text-[var(--text-secondary)]'
+                      }`}
+                      disabled={isSubmitting || demoMode}
+                    >
+                      {loc === 'Bayers Lake' ? 'Bayers' : loc === 'River Oaks' ? 'River' : loc}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Toggle Options - Removed, now in header */}
+
+          {/* Submit Buttons - Improved hierarchy */}
+          <div className="flex items-center gap-3">
+            <button
+              type="submit"
+              className={`btn btn-primary flex-1 flex items-center justify-center gap-2 ${!smartAssistEnabled ? 'slack-mode' : ''}`}
+              disabled={isProcessing || demoMode}
+              onClick={() => isMounted && logger.debug('Button clicked!', isProcessing)}
+              style={{
+                ...(isKnowledgeMode && !isProcessing ? {
+                  backgroundColor: '#EAB308',
+                  borderColor: '#CA8A04'
+                } : {}),
+                ...(isProcessing ? {
+                  background: 'linear-gradient(90deg, #152f2f 0%, #1a3939 50%, #152f2f 100%)',
+                  backgroundSize: '200% 100%',
+                  animation: 'shimmer 2s infinite',
+                  position: 'relative',
+                  overflow: 'hidden'
+                } : {})
+              }}
+            >
+              {!isProcessing && (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              )}
+              {isProcessing ? (
+                <>
+                  {isKnowledgeMode ? 'Adding Knowledge...' :
+                   isReceiptMode ? 'Scanning Receipt...' :
+                   smartAssistEnabled ? 'Processing...' : 'Sending...'}
+                  <div style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.3) 50%, transparent 100%)',
+                    animation: 'sweep 2s infinite',
+                    pointerEvents: 'none'
+                  }} />
+                </>
+              ) : (
+                isKnowledgeMode ? 'Add Knowledge' :
+                isReceiptMode ? 'Scan Receipt' :
+                isTicketMode ? 'Create' :
+                (smartAssistEnabled ? 'Process' : 'Send to Clubhouse Team')
+              )}
+            </button>
+            <button
+              type="button"
+              className="px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] rounded-md transition-all duration-200"
+              onClick={handleReset}
+              disabled={isSubmitting || demoMode}
+              title="Clear form and start a new query (Esc)"
+            >
+              Reset
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* Loading State */}
+      {isProcessing && (
+        <div className="card response-area" id="response-area">
+          <div className="flex flex-col items-center justify-center py-12">
+            {/* Blocky loading animation */}
+            <div className="flex gap-2 mb-6">
+              <div className="w-3 h-12 bg-[var(--accent)]" style={{
+                animation: 'block-wave 1.2s ease-in-out infinite',
+                animationDelay: '0s'
+              }}></div>
+              <div className="w-3 h-12 bg-[var(--accent)]" style={{
+                animation: 'block-wave 1.2s ease-in-out infinite',
+                animationDelay: '0.1s'
+              }}></div>
+              <div className="w-3 h-12 bg-[var(--accent)]" style={{
+                animation: 'block-wave 1.2s ease-in-out infinite',
+                animationDelay: '0.2s'
+              }}></div>
+              <div className="w-3 h-12 bg-[var(--accent)]" style={{
+                animation: 'block-wave 1.2s ease-in-out infinite',
+                animationDelay: '0.3s'
+              }}></div>
+            </div>
+            <p className="text-lg font-medium text-[var(--text-secondary)] mb-2">
+              {isKnowledgeMode ? 'Adding knowledge to AI system...' :
+               smartAssistEnabled ? 'Processing your request...' : 'Sending to Slack...'}
+            </p>
+            <p className="text-sm text-[var(--text-muted)] mb-1">
+              {smartAssistEnabled ? 'This could take up to 30 seconds... we are thinking' : 'This could take up to 2-3 minutes for a response... we are asking a real human'}
+            </p>
+            {elapsedTime > 0 && (
+              <p className="text-xs text-[var(--text-muted)]">
+                {elapsedTime}s elapsed
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Response Area */}
+      {showResponse && lastResponse && !isProcessing && (
+        <div className="card response-area" id="response-area">
+          <div className="response-content">
+            {!smartAssistEnabled ? (
+              <>
+                <strong>Sent to Slack</strong><br />
+                Your question has been posted to the general Slack channel.
+                
+                {/* Waiting for Reply State */}
+                {isWaitingForReply && slackReplies.length === 0 && (
+                  <div className="mt-4 p-4 bg-[var(--bg-tertiary)] rounded-lg border border-[var(--border-secondary)]">
+                    <div className="flex items-center gap-3">
+                      {/* Loading animation */}
+                      <div className="flex gap-1">
+                        <div className="w-2 h-8 bg-[var(--accent)]" style={{
+                          animation: 'block-wave 1.2s ease-in-out infinite',
+                          animationDelay: '0s'
+                        }}></div>
+                        <div className="w-2 h-8 bg-[var(--accent)]" style={{
+                          animation: 'block-wave 1.2s ease-in-out infinite',
+                          animationDelay: '0.1s'
+                        }}></div>
+                        <div className="w-2 h-8 bg-[var(--accent)]" style={{
+                          animation: 'block-wave 1.2s ease-in-out infinite',
+                          animationDelay: '0.2s'
+                        }}></div>
+                        <div className="w-2 h-8 bg-[var(--accent)]" style={{
+                          animation: 'block-wave 1.2s ease-in-out infinite',
+                          animationDelay: '0.3s'
+                        }}></div>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-[var(--text-primary)]">
+                          Waiting for staff reply...
+                        </p>
+                        <p className="text-xs text-[var(--text-secondary)]">
+                          Please allow a few moments for a response
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Integrated Slack Conversation - Using Messages Card Style */}
+                {(slackReplies.length > 0 || isWaitingForReply) && (
+                  <div className="mt-4 border-t border-[var(--border-secondary)] pt-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <MessageCircle className="w-4 h-4 text-[var(--accent)]" />
+                        <span className="text-sm font-medium text-[var(--text-primary)]">Slack Conversation</span>
+                        {slackReplies.length > 0 && (
+                          <span className="px-2 py-0.5 bg-[var(--bg-tertiary)] text-xs rounded-full">
+                            {slackReplies.length} {slackReplies.length === 1 ? 'reply' : 'replies'}
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => setConversationExpanded(!conversationExpanded)}
+                        className="p-1 hover:bg-[var(--bg-tertiary)] rounded transition-colors"
+                      >
+                        <ChevronDown className={`w-4 h-4 transition-transform ${conversationExpanded ? '' : '-rotate-90'}`} />
+                      </button>
+                    </div>
+                    
+                    {conversationExpanded && (
+                      <>
+                        {/* Messages Container */}
+                        <div className="space-y-2 mb-3 max-h-64 overflow-y-auto">
+                          {slackReplies.map((reply, index) => (
+                            <div key={reply.ts || index} className={`flex ${reply.is_from_clubos ? 'justify-end' : 'justify-start'}`}>
+                              <div className={`max-w-[80%] ${reply.is_from_clubos ? 'order-2' : ''}`}>
+                                <div className={`p-3 rounded-lg ${
+                                  reply.is_from_clubos 
+                                    ? 'bg-[var(--accent)] text-white' 
+                                    : 'bg-[var(--bg-tertiary)] border border-[var(--border-secondary)]'
+                                }`}>
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className={`text-xs font-medium ${reply.is_from_clubos ? 'text-white/90' : 'text-[var(--text-secondary)]'}`}>
+                                      {reply.user_name || reply.user || 'Staff'}
+                                    </span>
+                                    <span className={`text-xs ${reply.is_from_clubos ? 'text-white/70' : 'text-[var(--text-muted)]'}`}>
+                                      <Clock className="w-3 h-3 inline mr-1" />
+                                      {new Date(reply.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                  </div>
+                                  <p className={`text-sm ${reply.is_from_clubos ? 'text-white' : 'text-[var(--text-primary)]'}`}>
+                                    {reply.text}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                          
+                          {/* Waiting for reply indicator */}
+                          {isWaitingForReply && slackReplies.length === 0 && (
+                            <div className="flex justify-start">
+                              <div className="p-3 bg-[var(--bg-tertiary)] rounded-lg border border-[var(--border-secondary)]">
+                                <div className="flex items-center gap-2">
+                                  <div className="flex gap-1">
+                                    <div className="w-2 h-2 bg-[var(--accent)] rounded-full animate-pulse"></div>
+                                    <div className="w-2 h-2 bg-[var(--accent)] rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+                                    <div className="w-2 h-2 bg-[var(--accent)] rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
+                                  </div>
+                                  <span className="text-xs text-[var(--text-secondary)]">Staff is typing...</span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Reply Input */}
+                        {lastSlackThreadTs && !lastSlackThreadTs.startsWith('thread_') ? (
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={replyText}
+                              onChange={(e) => setReplyText(e.target.value)}
+                              onKeyPress={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                  e.preventDefault();
+                                  sendReplyToSlack();
+                                }
+                              }}
+                              placeholder="Type your reply..."
+                              className="flex-1 px-3 py-2 bg-[var(--bg-primary)] border border-[var(--border-secondary)] rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-[var(--accent)] transition-colors"
+                              disabled={sendingReply}
+                            />
+                            <button
+                              onClick={sendReplyToSlack}
+                              disabled={!replyText.trim() || sendingReply}
+                              className="px-4 py-2 bg-[var(--accent)] text-white rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-90 transition-opacity flex items-center gap-2"
+                            >
+                              {sendingReply ? (
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                              ) : (
+                                <>
+                                  <Send className="w-4 h-4" />
+                                  Send
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        ) : lastSlackThreadTs?.startsWith('thread_') ? (
+                          <div className="text-xs text-[var(--text-muted)] bg-[var(--bg-tertiary)] p-2 rounded">
+                            ℹ️ Two-way replies require Slack Bot Token configuration. Staff can still reply in Slack.
+                          </div>
+                        ) : null}
+                      </>
+                    )}
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <ResponseDisplaySimple
+                  response={{
+                    ...lastResponse.llmResponse,
+                    responseId: lastResponse.responseId, // Include response tracking ID
+                    status: lastResponse.status || 'completed',
+                    botRoute: lastResponse.botRoute,
+                    processingTime: lastResponse.processingTime,
+                    confidence: lastResponse.llmResponse?.confidence,
+                    originalQuery: lastRequestData?.requestDescription || requestDescription
+                  }}
+                  route={lastResponse.botRoute}
+                  photos={photoAttachments}
+                  originalQuery={lastRequestData?.requestDescription || requestDescription}
+                />
+              </>
+            )}
+          </div>
+
+          {/* Edit Instruction */}
+          {smartAssistEnabled && (
+            <div className="mt-4 pt-3 border-t border-[var(--border-secondary)]">
+              <p className="text-xs text-[var(--text-muted)] text-center">
+                Response incorrect? Click the edit icon to correct it
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default RequestForm;
+// trigger recompile
+

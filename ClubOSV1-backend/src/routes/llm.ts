@@ -1,0 +1,1237 @@
+import { Router, Request, Response, NextFunction } from 'express';
+import { v4 as uuidv4 } from 'uuid';
+import { logger } from '../utils/logger';
+import { db } from '../utils/database';
+import { cachedLLMService as llmService } from '../services/llmServiceCached';
+import { assistantService } from '../services/assistantService';
+import { slackFallback } from '../services/slackFallback';
+// JSON operations removed - using PostgreSQL
+import { UserRequest, ProcessedRequest, SystemConfig, BotRoute } from '../types';
+import { AppError } from '../middleware/errorHandler';
+import { validate, requestValidation } from '../middleware/validation';
+import { body } from 'express-validator';
+import { strictLimiter } from '../middleware/security';
+import { authenticate } from '../middleware/auth';
+import { roleGuard, adminOrOperator } from '../middleware/roleGuard';
+import { llmRateLimiter } from '../middleware/rateLimiter';
+import OpenAI from 'openai';
+import { hash } from '../utils/encryption';
+
+// Only initialize OpenAI if API key is present
+const openai = process.env.OPENAI_API_KEY ? new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+}) : null;
+
+const router = Router();
+
+// Simple test endpoint to verify route is accessible
+router.get('/ping', (req: Request, res: Response) => {
+  res.json({ message: 'pong', timestamp: new Date().toISOString() });
+});
+
+// Simple health check
+router.get('/health', (req: Request, res: Response) => {
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    llmEnabled: llmService?.isEnabled() || false,
+    assistantEnabled: !!assistantService
+  });
+});
+
+// Cache system config to avoid reading file on every request
+let cachedConfig: SystemConfig | null = null;
+let configLastLoaded = 0;
+const CONFIG_CACHE_TTL = 60000; // 1 minute
+
+async function getSystemConfig(): Promise<SystemConfig> {
+  const now = Date.now();
+  if (!cachedConfig || now - configLastLoaded > CONFIG_CACHE_TTL) {
+    // Return default config for now - can be stored in database later
+    cachedConfig = {
+      environment: process.env.NODE_ENV || 'development',
+      llmProvider: 'openai',
+      features: {
+        smartAssist: true,
+        bookings: true,
+        tickets: true,
+        slack: true
+      },
+      limits: {
+        maxRequestsPerDay: 1000,
+        maxTokensPerRequest: 4000
+      }
+    };
+    configLastLoaded = now;
+  }
+  return cachedConfig!;
+}
+
+// Add a test endpoint without validation to isolate the issue
+router.post('/test-direct', async (req: Request, res: Response) => {
+  try {
+    res.json({
+      received: req.body,
+      smartAssistEnabled: {
+        value: req.body.smartAssistEnabled,
+        type: typeof req.body.smartAssistEnabled,
+        truthyCheck: !!req.body.smartAssistEnabled,
+        strictEqualsTrue: req.body.smartAssistEnabled === true,
+        strictEqualsFalse: req.body.smartAssistEnabled === false,
+        equalsStringTrue: req.body.smartAssistEnabled === 'true',
+        equalsStringFalse: req.body.smartAssistEnabled === 'false'
+      }
+    });
+  } catch (error) {
+    logger.error('Error in test-direct:', error);
+    res.status(500).json({ error: 'Test endpoint failed' });
+  }
+});
+
+// Debug middleware to log request before validation
+const debugMiddleware = (req: Request, res: Response, next: NextFunction) => {
+  logger.info('PRE-VALIDATION Request body:', {
+    body: req.body,
+    smartAssistEnabled: req.body.smartAssistEnabled,
+    smartAssistType: typeof req.body.smartAssistEnabled,
+    headers: req.headers['content-type']
+  });
+  next();
+};
+
+// Add health check endpoint
+router.get('/health', (req: Request, res: Response) => {
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    message: 'LLM service is running'
+  });
+});
+
+// Optimized request processing with single API call
+router.post('/request', 
+  authenticate,  // Re-enabled authentication
+  adminOrOperator,  // Re-enabled role check
+  llmRateLimiter,  // Rate limiting for AI requests
+  debugMiddleware, // Log before validation
+  // strictLimiter, // TEMPORARILY DISABLED due to Railway proxy issues
+  // validate(requestValidation.llmRequest), // TEMPORARILY DISABLED for debugging
+  async (req: Request, res: Response, next: NextFunction) => {
+    const startTime = Date.now();
+    const requestId = uuidv4();
+    const sessionId = (req as any).requestId || uuidv4();
+
+    try {
+      // Use cached config
+      const config = await getSystemConfig();
+      
+      // LLM is always enabled for now
+      // if (!config.llmEnabled) {
+      //   throw new AppError('LLM_DISABLED', 'LLM processing is currently disabled', 503);
+      // }
+
+      // Fetch full user info if authenticated
+      let fullUser = null;
+      if (req.user) {
+        try {
+          const { db } = await import('../utils/database');
+          if (db.isEnabled()) {
+            fullUser = await db.findUserById(req.user.id);
+          }
+        } catch (err) {
+          logger.warn('Failed to fetch user info', { userId: req.user.id, error: err });
+        }
+      }
+      // REMOVED: Demo mode bypass that allowed unauthenticated requests
+      // Authentication is now strictly required
+
+      // Log raw request body first
+      logger.info('Raw request body received:', {
+        body: JSON.stringify(req.body),
+        headers: req.headers['content-type']
+      });
+      
+      // Check if this is a customer kiosk request
+      const isCustomerKiosk = req.body.requestDescription?.startsWith('[CUSTOMER KIOSK]') ||
+                            req.body.metadata?.source === 'customer_kiosk';
+
+      // Check if this is a receipt OCR request
+      const isReceiptOCR = req.body.requestDescription?.startsWith('[RECEIPT OCR]') ||
+                          req.body.routePreference === 'Receipt';
+
+      // Check if this is a receipt query request (searching/managing receipts)
+      const isReceiptQuery = !isReceiptOCR && (
+        req.body.requestDescription?.toLowerCase().includes('receipt') ||
+        req.body.requestDescription?.toLowerCase().includes('expense') ||
+        req.body.requestDescription?.toLowerCase().includes('purchase') ||
+        req.body.requestDescription?.toLowerCase().includes('vendor') ||
+        req.body.requestDescription?.toLowerCase().includes('reconcile')
+      );
+
+      // Debug logging
+      logger.info('Request processing debug', {
+        fullBody: req.body,
+        smartAssistEnabled: req.body.smartAssistEnabled,
+        smartAssistType: typeof req.body.smartAssistEnabled,
+        isCustomerKiosk,
+        isReceiptQuery,
+        willSendToSlack: isCustomerKiosk || !req.body.smartAssistEnabled,
+        requestDescription: req.body.requestDescription?.substring(0, 50)
+      });
+      
+      // Handle receipt OCR request
+      if (isReceiptOCR) {
+        const { processReceiptWithOCR, formatOCRForDisplay } = await import('../services/ocr/receiptOCR');
+
+        // Get the image data from request
+        const imageData = req.body.imageData;
+        if (!imageData) {
+          return res.status(400).json({
+            success: false,
+            error: 'No receipt image provided'
+          });
+        }
+
+        try {
+          // Process with OCR
+          const ocrResult = await processReceiptWithOCR(imageData);
+          const ocrDisplayText = formatOCRForDisplay(ocrResult);
+
+          // Save to database if extraction was successful
+          let savedReceiptId = null;
+          let isDuplicate = false;
+          if (ocrResult.vendor || ocrResult.totalAmount) {
+            const { db } = await import('../utils/database');
+
+            // Generate content hash for duplicate detection (defensive - column may not exist)
+            let contentHash: string | null = null;
+            try {
+              contentHash = hash(imageData);
+
+              // Check for existing receipt with same content
+              const existingReceipt = await db.query(
+                'SELECT id, vendor, created_at FROM receipts WHERE content_hash = $1',
+                [contentHash]
+              );
+
+              if (existingReceipt.rows.length > 0) {
+                // Duplicate found - return existing receipt instead of creating new
+                savedReceiptId = existingReceipt.rows[0].id;
+                isDuplicate = true;
+                logger.warn('Duplicate receipt detected during OCR', {
+                  existingId: savedReceiptId,
+                  vendor: existingReceipt.rows[0].vendor
+                });
+              }
+            } catch (hashErr) {
+              // content_hash column may not exist yet - continue without duplicate detection
+              logger.warn('Duplicate detection skipped - content_hash column may not exist yet');
+              contentHash = null;
+            }
+
+            // Only insert if not a duplicate
+            if (!isDuplicate) {
+              // Convert image to PDF for storage (OCR already ran on the original image)
+              // Content hash was computed on original imageData above — do not recompute
+              const { convertImageToPdf } = await import('../services/receipt/imageToPdf');
+              let storageData = imageData;
+              let storageMimeType = 'application/pdf';
+
+              try {
+                logger.info('Converting receipt image to PDF for storage');
+                storageData = await convertImageToPdf(imageData);
+                logger.info('Image converted to PDF successfully');
+              } catch (convError) {
+                logger.warn('PDF conversion failed, storing as original image:', convError);
+                storageMimeType = 'image/jpeg';
+              }
+
+              // Try insert with content_hash first, fall back to without if column doesn't exist
+              try {
+                const insertResult = await db.query(`
+                  INSERT INTO receipts (
+                    vendor,
+                    amount_cents,
+                    tax_cents,
+                    hst_cents,
+                    hst_reg_number,
+                    purchase_date,
+                    category,
+                    payment_method,
+                    uploader_user_id,
+                    ocr_status,
+                    ocr_text,
+                    ocr_json,
+                    ocr_confidence,
+                    line_items,
+                    file_data,
+                    mime_type,
+                    is_personal_card,
+                    content_hash
+                  ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+                  RETURNING id
+                `, [
+                  ocrResult.vendor || null,
+                  ocrResult.totalAmount ? Math.round(ocrResult.totalAmount * 100) : null,
+                  ocrResult.taxAmount ? Math.round(ocrResult.taxAmount * 100) : null,
+                  ocrResult.hstAmount ? Math.round(ocrResult.hstAmount * 100) : null,
+                  ocrResult.hstRegNumber || null,
+                  ocrResult.purchaseDate || null,
+                  ocrResult.category || null,
+                  ocrResult.paymentMethod || null,
+                  req.user?.id,
+                  'completed',
+                  ocrResult.rawText || null,
+                  JSON.stringify(ocrResult),
+                  ocrResult.confidence,
+                  ocrResult.lineItems ? JSON.stringify(ocrResult.lineItems) : null,
+                  storageData,
+                  storageMimeType,
+                  req.body.isPersonalCard || false,
+                  contentHash
+                ]);
+
+                if (insertResult.rows.length > 0) {
+                  savedReceiptId = insertResult.rows[0].id;
+                  logger.info('Receipt saved to database:', { receiptId: savedReceiptId });
+                }
+              } catch (insertErr: any) {
+                // If content_hash column doesn't exist, try without it
+                if (insertErr.message?.includes('content_hash')) {
+                  logger.warn('Retrying insert without content_hash column');
+                  const insertResult = await db.query(`
+                    INSERT INTO receipts (
+                      vendor,
+                      amount_cents,
+                      tax_cents,
+                      hst_cents,
+                      hst_reg_number,
+                      purchase_date,
+                      category,
+                      payment_method,
+                      uploader_user_id,
+                      ocr_status,
+                      ocr_text,
+                      ocr_json,
+                      ocr_confidence,
+                      line_items,
+                      file_data,
+                      mime_type,
+                      is_personal_card
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+                    RETURNING id
+                  `, [
+                    ocrResult.vendor || null,
+                    ocrResult.totalAmount ? Math.round(ocrResult.totalAmount * 100) : null,
+                    ocrResult.taxAmount ? Math.round(ocrResult.taxAmount * 100) : null,
+                    ocrResult.hstAmount ? Math.round(ocrResult.hstAmount * 100) : null,
+                    ocrResult.hstRegNumber || null,
+                    ocrResult.purchaseDate || null,
+                    ocrResult.category || null,
+                    ocrResult.paymentMethod || null,
+                    req.user?.id,
+                    'completed',
+                    ocrResult.rawText || null,
+                    JSON.stringify(ocrResult),
+                    ocrResult.confidence,
+                    ocrResult.lineItems ? JSON.stringify(ocrResult.lineItems) : null,
+                    storageData,
+                    storageMimeType,
+                    req.body.isPersonalCard || false
+                  ]);
+
+                  if (insertResult.rows.length > 0) {
+                    savedReceiptId = insertResult.rows[0].id;
+                    logger.info('Receipt saved to database (without content_hash):', { receiptId: savedReceiptId });
+                  }
+                } else {
+                  throw insertErr;
+                }
+              }
+            }
+          }
+
+          return res.json({
+            success: true,
+            data: {
+              requestId,
+              response: isDuplicate
+                ? `⚠️ This receipt was already uploaded.\n\n${ocrDisplayText}`
+                : ocrDisplayText,
+              confidence: ocrResult.confidence,
+              extractedData: {
+                vendor: ocrResult.vendor,
+                totalAmount: ocrResult.totalAmount,
+                taxAmount: ocrResult.taxAmount,
+                hstAmount: ocrResult.hstAmount,
+                hstRegNumber: ocrResult.hstRegNumber,
+                purchaseDate: ocrResult.purchaseDate,
+                category: ocrResult.category,
+                paymentMethod: ocrResult.paymentMethod,
+                lineItems: ocrResult.lineItems
+              },
+              receiptId: savedReceiptId,
+              isDuplicate,
+              status: isDuplicate ? 'duplicate' : 'completed'
+            }
+          });
+        } catch (ocrError) {
+          logger.error('Receipt OCR processing failed:', ocrError);
+          return res.status(500).json({
+            success: false,
+            error: 'Failed to process receipt'
+          });
+        }
+      }
+
+      // Handle receipt query requests (searching/managing existing receipts)
+      if (isReceiptQuery) {
+        const { receiptQueryService } = await import('../services/receiptQueryService');
+
+        try {
+          // Process the receipt query
+          const queryResult = await receiptQueryService.queryReceipts({
+            text: req.body.requestDescription,
+            userId: req.user?.id
+          });
+
+          // Format response based on query result type
+          let formattedResponse = '';
+
+          if (!queryResult.success) {
+            formattedResponse = queryResult.message || 'Unable to process receipt query';
+          } else if (queryResult.message) {
+            formattedResponse = queryResult.message;
+
+            // Add receipt details if available
+            if (queryResult.receipts && queryResult.receipts.length > 0) {
+              formattedResponse += '\n\nReceipts Found:\n';
+              queryResult.receipts.forEach((receipt: any, index: number) => {
+                formattedResponse += `\n${index + 1}. ${receipt.vendor} - $${receipt.amount}`;
+                formattedResponse += `\n   Date: ${receipt.date}`;
+                if (receipt.category) formattedResponse += ` | Category: ${receipt.category}`;
+                if (receipt.location) formattedResponse += ` | Location: ${receipt.location}`;
+                if (receipt.reconciled) formattedResponse += ' ✓ Reconciled';
+                if (receipt.hasPhoto) formattedResponse += ' 📷';
+              });
+            }
+
+            // Add summary if available
+            if (queryResult.summary && queryResult.summary.count > 0) {
+              if (!queryResult.receipts || queryResult.receipts.length === 0) {
+                formattedResponse += '\n\nSummary:\n';
+                formattedResponse += `Total Receipts: ${queryResult.summary.count}\n`;
+                formattedResponse += `Total Amount: $${queryResult.summary.totalAmount.toFixed(2)}`;
+                if (queryResult.summary.averageAmount) {
+                  formattedResponse += `\nAverage: $${queryResult.summary.averageAmount.toFixed(2)}`;
+                }
+              }
+            }
+          }
+
+          return res.json({
+            success: true,
+            data: {
+              requestId,
+              response: formattedResponse,
+              receipts: queryResult.receipts,
+              summary: queryResult.summary,
+              actions: queryResult.actions,
+              status: 'completed',
+              dataSource: 'RECEIPTS_DATABASE',
+              isLocalKnowledge: true
+            }
+          });
+        } catch (queryError) {
+          logger.error('Receipt query processing failed:', queryError);
+          return res.json({
+            success: true,
+            data: {
+              requestId,
+              response: 'I encountered an issue while searching for receipts. Please try rephrasing your query or contact support.',
+              status: 'error',
+              error: queryError instanceof Error ? queryError.message : 'Unknown error'
+            }
+          });
+        }
+      }
+
+      // For customer kiosk requests, always send to Slack
+      if (isCustomerKiosk || !req.body.smartAssistEnabled) {
+        // Send directly to Slack
+        const userRequest: UserRequest & { user?: any } = {
+          id: requestId,
+          requestDescription: req.body.requestDescription,
+          location: req.body.location,
+          smartAssistEnabled: false,
+          timestamp: new Date().toISOString(),
+          status: 'sent_to_slack',
+          sessionId,
+          userId: req.user?.id || 'customer-kiosk',
+          user: fullUser ? {
+            id: fullUser.id,
+            name: fullUser.name,
+            email: fullUser.email,
+            phone: fullUser.phone,
+            role: fullUser.role
+          } : isCustomerKiosk ? { name: 'Customer Kiosk', role: 'customer' } : undefined
+        };
+        
+        // Log the request to database asynchronously (don't wait)
+        import('../utils/database').then(({ db }) => {
+          if (db.isEnabled()) {
+            db.createRequestLog({
+              method: 'POST',
+              path: '/api/llm/request',
+              user_id: req.user?.id,
+              ip_address: req.ip,
+              user_agent: req.get('user-agent')
+            }).catch(err => logger.error('Failed to log request', err));
+          }
+        }).catch(err => logger.error('Failed to import database', err));
+        
+        // Send to Slack and capture thread ID
+        const slackThreadTs = await slackFallback.sendDirectMessage(userRequest);
+        
+        // Update the processed request with Slack thread ID
+        const processedRequest: ProcessedRequest = {
+          ...userRequest,
+          botRoute: 'Slack',
+          slackThreadTs,
+          status: 'sent_to_slack' as any,
+          processingTime: Date.now() - startTime
+        };
+        
+        // Log to database asynchronously
+        import('../utils/database').then(({ db }) => {
+          if (db.isEnabled()) {
+            db.createCustomerInteraction({
+              user_id: req.user?.id,
+              user_email: req.user?.email,
+              request_text: userRequest.requestDescription,
+              response_text: 'Sent to Slack support team',
+              route: 'Slack',
+              confidence: 1.0
+            }).catch(err => logger.error('Failed to log interaction', err));
+          }
+        }).catch(err => logger.error('Failed to import database', err));
+        
+        return res.json({
+          success: true,
+          data: {
+            requestId: userRequest.id,
+            status: 'sent_to_slack',
+            message: 'Your request has been sent to our support team',
+            slackThreadTs
+          }
+        });
+      }
+
+      // Create user request for LLM processing
+      const userRequest: UserRequest & { user?: any } = {
+        id: requestId,
+        requestDescription: req.body.requestDescription,
+        location: req.body.location,
+        routePreference: req.body.routePreference,
+        smartAssistEnabled: true,
+        timestamp: new Date().toISOString(),
+        status: 'processing',
+        sessionId,
+        userId: req.user?.id || 'demo-user',
+        user: fullUser ? {
+          id: fullUser.id,
+          name: fullUser.name,
+          email: fullUser.email,
+          phone: fullUser.phone,
+          role: fullUser.role
+        } : undefined
+      };
+
+      let processedRequest: ProcessedRequest;
+      let slackThreadTs: string | undefined;
+
+      try {
+        // OPTIMIZATION: Skip the routing LLM call if user specified a route
+        let targetRoute = userRequest.routePreference;
+        let llmResponse: any = null;
+        
+        if (!targetRoute || targetRoute === 'Auto') {
+          // Only call LLM router if we need to determine the route
+          const routingStart = Date.now();
+          llmResponse = await llmService.processRequest(
+            userRequest.requestDescription,
+            userRequest.userId,
+            {
+              location: userRequest.location,
+              sessionId: userRequest.sessionId
+            }
+          );
+          targetRoute = llmResponse.route;
+          logger.info('LLM routing took:', { duration: Date.now() - routingStart, route: targetRoute });
+        } else {
+          // Create a minimal response for logging
+          llmResponse = {
+            route: targetRoute,
+            confidence: 1.0,
+            reasoning: 'User specified route',
+            extractedInfo: {}
+          };
+        }
+        
+        // Now get the actual response from the assistant
+        let assistantResponse;
+        try {
+          logger.info('Calling assistant service', { targetRoute });
+          const assistantStart = Date.now();
+          
+          // Normalize route names for consistency
+          const normalizeRoute = (route: string): string => {
+            const routeMap: Record<string, string> = {
+              'Booking&Access': 'Booking & Access',
+              'booking': 'Booking & Access',
+              'access': 'Booking & Access',
+              'emergency': 'Emergency',
+              'Emergency': 'Emergency',
+              'tech': 'TechSupport',
+              'TechSupport': 'TechSupport',
+              'brand': 'BrandTone',
+              'BrandTone': 'BrandTone',
+              'general': 'BrandTone',
+              'Auto': 'Auto'
+            };
+            return routeMap[route] || route;
+          };
+          
+          const assistantRoute = normalizeRoute(targetRoute);
+          
+          assistantResponse = assistantService ? await assistantService.getAssistantResponse(
+            assistantRoute,
+            userRequest.requestDescription,
+            {
+              location: userRequest.location,
+              sessionId: userRequest.sessionId
+            }
+          ) : null;
+          logger.info('Assistant response took:', { duration: Date.now() - assistantStart, route: targetRoute });
+          
+          if (assistantResponse) {
+            // Use the assistant's response
+            llmResponse.response = assistantResponse.response;
+            llmResponse.extractedInfo = {
+              ...llmResponse.extractedInfo,
+              assistantId: assistantResponse.assistantId,
+              threadId: assistantResponse.threadId
+            };
+            
+            // Add structured response data if available
+            if (assistantResponse.structured) {
+              llmResponse.structuredResponse = assistantResponse.structured;
+              llmResponse.category = assistantResponse.category;
+              llmResponse.priority = assistantResponse.priority;
+              llmResponse.actions = assistantResponse.actions;
+              llmResponse.metadata = assistantResponse.metadata;
+              llmResponse.escalation = assistantResponse.escalation;
+            }
+          } else {
+            throw new Error('Assistant service not available');
+          }
+        } catch (assistantError) {
+          logger.warn('Failed to get assistant response, using fallback', {
+            error: assistantError,
+            route: targetRoute
+          });
+          // Provide a helpful fallback response
+          llmResponse.response = `I'll help you with your ${targetRoute} request. ${getQuickResponse(targetRoute, userRequest.requestDescription)}`;
+        }
+        
+        processedRequest = {
+          ...userRequest,
+          botRoute: targetRoute,
+          llmResponse,
+          status: 'completed',
+          processingTime: Date.now() - startTime,
+          slackThreadTs,
+          user: userRequest.user // Ensure user info is preserved
+        };
+
+        // Check if this is an emergency or high priority request that needs immediate Slack notification
+        const isEmergency = targetRoute === 'Emergency';
+        const isHighPriority = llmResponse?.extractedInfo?.suggestedPriority === 'high' || 
+                              llmResponse?.extractedInfo?.suggestedPriority === 'urgent';
+        
+        // Check system configuration for Slack notification settings
+        try {
+          const { db } = await import('../utils/database');
+          const configResult = await db.query(
+            'SELECT value FROM system_config WHERE key = $1',
+            ['slack_notifications']
+          );
+          
+          if (configResult.rows.length > 0) {
+            const slackConfig = configResult.rows[0].value;
+            
+            // ALWAYS send Slack notification for emergencies or high priority
+            // OR if configured to send on LLM success
+            if (config.features?.slack && slackConfig.enabled && 
+                (isEmergency || isHighPriority || slackConfig.sendOnLLMSuccess)) {
+              
+              // Add emergency flag to the request for special handling
+              if (isEmergency || isHighPriority) {
+                processedRequest.isEmergency = true;
+                processedRequest.priority = llmResponse?.extractedInfo?.suggestedPriority || 'high';
+              }
+              
+              slackFallback.sendProcessedNotification(processedRequest)
+                .then(threadTs => {
+                  processedRequest.slackThreadTs = threadTs;
+                  logger.info('Slack notification sent', { 
+                    threadTs,
+                    isEmergency,
+                    isHighPriority,
+                    route: targetRoute,
+                    priority: processedRequest.priority
+                  });
+                })
+                .catch(err => logger.error('Failed to send Slack notification', err));
+            }
+          }
+        } catch (err) {
+          logger.warn('Failed to check Slack notification config', err);
+        }
+
+      } catch (llmError) {
+        logger.error('LLM processing failed:', llmError);
+        
+        // Fallback to local routing or Slack
+        if (config.features?.slack) {
+          slackThreadTs = await slackFallback.sendFallbackNotification(
+            userRequest as UserRequest & { user?: any },
+            llmError instanceof Error ? llmError.message : 'Unknown error'
+          );
+        }
+
+        // Use local routing as fallback
+        const fallbackResponse = llmService.routeWithoutLLM(req.body.requestDescription);
+        const fallbackRoute = fallbackResponse.route;
+        
+        processedRequest = {
+          ...userRequest,
+          botRoute: fallbackRoute as BotRoute,
+          status: 'fallback',
+          processingTime: Date.now() - startTime,
+          error: 'LLM processing failed, used fallback routing',
+          slackThreadTs
+        };
+      }
+
+      // Calculate total time if client start time was provided
+      const totalProcessingTime = req.body.clientStartTime 
+        ? Date.now() - req.body.clientStartTime 
+        : processedRequest.processingTime;
+
+      // Log to database asynchronously - don't wait
+      import('../utils/database').then(({ db }) => {
+        if (db.isEnabled()) {
+          db.createCustomerInteraction({
+            user_id: req.user?.id,
+            user_email: req.user?.email,
+            request_text: userRequest.requestDescription,
+            response_text: processedRequest.llmResponse?.response || 'Processing...',
+            route: processedRequest.botRoute || 'unknown',
+            confidence: processedRequest.llmResponse?.confidence || 0,
+            // suggested_priority: processedRequest.llmResponse?.extractedInfo?.suggestedPriority,
+            session_id: sessionId,
+            metadata: {
+              processingTime: totalProcessingTime,
+              serverProcessingTime: processedRequest.processingTime,
+              // extractedInfo: processedRequest.llmResponse?.extractedInfo
+            }
+          }).catch(err => logger.error('Failed to log', err));
+          
+          // Update or create session
+          db.query(
+            `INSERT INTO conversation_sessions (session_id, user_id, last_activity, context)
+             VALUES ($1, $2, CURRENT_TIMESTAMP, $3)
+             ON CONFLICT (session_id) 
+             DO UPDATE SET last_activity = CURRENT_TIMESTAMP, 
+                          context = conversation_sessions.context || $3`,
+            [
+              sessionId,
+              req.user?.id,
+              JSON.stringify({
+                lastRequest: userRequest.requestDescription,
+                lastRoute: processedRequest.botRoute,
+                timestamp: new Date().toISOString()
+              })
+            ]
+          ).catch(err => logger.error('Failed to update session', err));
+        }
+      }).catch(err => logger.error('Failed to import database', err));
+
+      // Check the actual provider that handled the request
+      const provider = processedRequest.llmResponse?.provider || 'unknown';
+      const isLocalKnowledge = provider === 'local' || provider === 'knowledgeStore' ||
+                               processedRequest.llmResponse?.assistantId?.startsWith('LOCAL-KNOWLEDGE-');
+      const displayRoute = isLocalKnowledge
+        ? `Local Knowledge (${processedRequest.botRoute})`
+        : processedRequest.botRoute;
+
+      // Determine the actual data source more accurately
+      let dataSource = 'UNKNOWN';
+      if (provider === 'local' || provider === 'knowledgeStore') {
+        dataSource = 'CLUBOS_DATABASE';
+      } else if (provider === 'openai' || provider === 'OPENAI') {
+        dataSource = 'OPENAI_API';
+      } else if (isLocalKnowledge) {
+        dataSource = 'CLUBOS_DATABASE';
+      } else if (processedRequest.llmResponse?.response) {
+        // If we have a response but no clear provider, check for OpenAI assistant ID
+        dataSource = processedRequest.llmResponse?.assistantId?.startsWith('asst_') ? 'OPENAI_API' : 'CLUBOS_DATABASE';
+      }
+
+      // Save response to tracking table for learning and corrections
+      let responseId: string | undefined;
+      if (processedRequest.llmResponse?.response) {
+        import('../utils/database').then(async ({ db }) => {
+          if (db.isEnabled()) {
+            try {
+              const trackingResult = await db.query(
+                `INSERT INTO response_tracking (
+                  user_id, original_query, response, route,
+                  assistant_id, thread_id, confidence, metadata
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                RETURNING id`,
+                [
+                  req.user?.id,
+                  userRequest.requestDescription,
+                  processedRequest.llmResponse?.response,
+                  processedRequest.botRoute,
+                  processedRequest.llmResponse?.assistantId || null,
+                  processedRequest.llmResponse?.threadId || null,
+                  processedRequest.llmResponse?.confidence || 0.5,
+                  JSON.stringify({
+                    location: userRequest.location,
+                    provider: provider,
+                    dataSource: dataSource,
+                    processingTime: processedRequest.processingTime
+                  })
+                ]
+              );
+
+              if (trackingResult.rows.length > 0) {
+                responseId = trackingResult.rows[0].id;
+                logger.info('Response tracked for learning:', { responseId, route: processedRequest.botRoute });
+              }
+            } catch (err) {
+              logger.error('Failed to track response:', err);
+            }
+          }
+        }).catch(err => logger.error('Failed to import database for tracking:', err));
+      }
+
+      res.json({
+        success: true,
+        data: {
+          requestId: processedRequest.id,
+          responseId: responseId, // Include response tracking ID
+          botRoute: displayRoute,
+          llmResponse: {
+            route: displayRoute,
+            response: processedRequest.llmResponse?.response || 'I\'m having trouble understanding your request. Please try rephrasing or contact support.',
+            confidence: processedRequest.llmResponse?.confidence || 0.5,
+            suggestedActions: processedRequest.llmResponse?.suggestedActions || [],
+            reasoning: processedRequest.llmResponse?.reasoning,
+            // extractedInfo: processedRequest.llmResponse?.extractedInfo,
+            isAssistantResponse: !!processedRequest.llmResponse?.response,
+            isLocalKnowledge: isLocalKnowledge,
+            dataSource: dataSource,
+            // Include structured response data if available (future features)
+            structured: processedRequest.llmResponse?.structured,
+            // category: processedRequest.llmResponse?.category,
+            // priority: processedRequest.llmResponse?.priority,
+            // actions: processedRequest.llmResponse?.actions,
+            metadata: processedRequest.llmResponse?.metadata,
+            // escalation: processedRequest.llmResponse?.escalation
+          },
+          processingTime: processedRequest.processingTime,
+          status: processedRequest.status,
+          slackThreadTs: processedRequest.slackThreadTs
+        }
+      });
+
+    } catch (error) {
+      logger.error('Request processing failed:', error);
+      
+      // Log failed request asynchronously
+      const failedRequest: ProcessedRequest = {
+        id: requestId,
+        requestDescription: req.body.requestDescription || '',
+        smartAssistEnabled: true,
+        timestamp: new Date().toISOString(),
+        status: 'failed',
+        sessionId,
+        botRoute: 'Auto',
+        processingTime: Date.now() - startTime,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+      
+      import('../utils/database').then(({ db }) => {
+        if (db.isEnabled()) {
+          db.createRequestLog({
+            method: 'POST',
+            path: '/api/llm/request',
+            user_id: req.user?.id,
+            ip_address: req.ip,
+            user_agent: req.get('user-agent'),
+            error: error instanceof Error ? error.message : 'Unknown error'
+          }).catch(() => {});
+        }
+      }).catch(() => {});
+      
+      // Return error response instead of passing to error handler
+      // This ensures CORS headers are set
+      return res.status(500).json({
+        success: false,
+        error: {
+          code: 'PROCESSING_ERROR',  
+          message: error instanceof Error ? error.message : 'Failed to process request',
+          requestId
+        }
+      });
+    }
+  }
+);
+
+// Helper function for quick responses
+function getQuickResponse(route: string, description: string): string {
+  const responses: Record<string, string> = {
+    'Emergency': 'Follow emergency protocols: ensure safety, call 911 if needed, contact management, and document the incident.',
+    'Booking & Access': 'I\'ll help you manage this booking/access issue. Check the system for customer details and follow standard procedures.',
+    'TechSupport': 'I\'ll guide you through troubleshooting this equipment issue. Start with basic diagnostics.',
+    'BrandTone': 'I\'ll help you create appropriate customer communications for this situation.'
+  };
+  return responses[route] || 'I\'ll assist you with this operational matter.';
+}
+
+// Get LLM status - temporarily remove auth for demo
+router.get('/status', /* authenticate, */ async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const config = await getSystemConfig();
+    // TODO: Implement request logs in database
+    const logs: ProcessedRequest[] = [];
+    
+    // Calculate stats from last 24 hours
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const recentLogs = logs.filter(log => 
+      new Date(log.timestamp) > oneDayAgo && log.smartAssistEnabled
+    );
+    
+    const stats = {
+      totalRequests: recentLogs.length,
+      successfulRequests: recentLogs.filter(log => log.status === 'completed').length,
+      fallbackRequests: recentLogs.filter(log => log.status === 'fallback').length,
+      failedRequests: recentLogs.filter(log => log.status === 'failed').length,
+      averageProcessingTime: recentLogs.length > 0
+        ? recentLogs.reduce((sum, log) => sum + log.processingTime, 0) / recentLogs.length
+        : 0,
+      routeDistribution: recentLogs.reduce((acc, log) => {
+        acc[log.botRoute] = (acc[log.botRoute] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>)
+    };
+
+    res.json({
+      success: true,
+      data: {
+        enabled: config.llmEnabled && llmService.isEnabled(),
+        provider: 'OpenAI',
+        model: process.env.OPENAI_MODEL || 'gpt-4-turbo-preview',
+        stats,
+        config: {
+          llmEnabled: config.llmEnabled,
+          slackFallbackEnabled: config.slackFallbackEnabled,
+          maxRetries: config.maxRetries,
+          requestTimeout: config.requestTimeout
+        }
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Test LLM routing - admin and operator only
+router.post('/test', 
+  authenticate,
+  adminOrOperator,
+  validate([
+    body('description')
+      .trim()
+      .notEmpty()
+      .withMessage('Description is required')
+      .isLength({ min: 5, max: 500 })
+      .withMessage('Description must be between 5 and 500 characters')
+  ]),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { description } = req.body;
+
+      // Test both LLM and local routing
+      const localResponse = llmService.routeWithoutLLM(description);
+      const localRoute = localResponse.route;
+      
+      let llmRoute = null;
+      let llmResponse = null;
+      
+      if (llmService.isEnabled()) {
+        try {
+          const testRequest: UserRequest = {
+            id: 'test-' + uuidv4(),
+            requestDescription: description,
+            smartAssistEnabled: true,
+            timestamp: new Date().toISOString(),
+            status: 'processing',
+            sessionId: 'test'
+          };
+          
+          llmResponse = await llmService.processRequest(description, 'test-user', { sessionId: 'test' });
+          llmRoute = llmResponse.route;
+        } catch (err) {
+          logger.error('Test LLM processing failed:', err);
+        }
+      }
+
+      res.json({
+        success: true,
+        data: {
+          description,
+          localRoute,
+          llmRoute,
+          llmResponse,
+          llmAvailable: llmService.isEnabled()
+        }
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Debug endpoint to check what's happening
+router.post('/debug-request',
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { requestDescription } = req.body;
+      
+      // Check LLM service
+      const llmEnabled = llmService.isEnabled();
+      const llmStatus = await llmService.getRouterStatus();
+      
+      // Try to process with LLM
+      let llmResponse = null;
+      let llmError = null;
+      try {
+        llmResponse = await llmService.processRequest(requestDescription, 'debug-user');
+      } catch (err: any) {
+        llmError = err.message;
+      }
+      
+      // Check system config
+      const config = await getSystemConfig();
+      
+      res.json({
+        success: true,
+        debug: {
+          llmEnabled,
+          llmStatus,
+          llmResponse,
+          llmError,
+          systemConfig: {
+            llmEnabled: config.llmEnabled,
+            provider: process.env.OPENAI_API_KEY ? 'OpenAI configured' : 'No API key'
+          },
+          assistantIds: {
+            booking: process.env.BOOKING_ACCESS_GPT_ID || 'Not configured',
+            emergency: process.env.EMERGENCY_GPT_ID || 'Not configured',
+            tech: process.env.TECH_SUPPORT_GPT_ID || 'Not configured',
+            brand: process.env.BRAND_MARKETING_GPT_ID || 'Not configured'
+          }
+        }
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Debug assistant response parsing
+router.post('/debug-assistant',
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { route, message } = req.body;
+      
+      if (!route || !message) {
+        return res.status(400).json({
+          success: false,
+          error: 'Route and message are required'
+        });
+      }
+      
+      // Test the assistant service directly
+      let assistantResponse = null;
+      let parseError = null;
+      let rawResponse = null;
+      
+      try {
+        // Get the raw response first
+        assistantResponse = await assistantService.getAssistantResponse(
+          route,
+          message,
+          {}
+        );
+        
+        // Store the raw response for debugging
+        rawResponse = assistantResponse;
+        
+        logger.info('Debug assistant raw response:', {
+          response: assistantResponse.response?.substring(0, 200) + '...',
+          hasStructured: !!assistantResponse.structured,
+          category: assistantResponse.category,
+          priority: assistantResponse.priority,
+          actionsCount: assistantResponse.actions?.length || 0
+        });
+      } catch (err: any) {
+        parseError = err.message;
+        logger.error('Debug assistant error:', err);
+      }
+      
+      res.json({
+        success: true,
+        debug: {
+          route,
+          message,
+          assistantResponse: rawResponse,
+          parseError,
+          responsePreview: rawResponse?.response?.substring(0, 500),
+          hasStructuredData: !!rawResponse?.structured,
+          structuredKeys: rawResponse?.structured ? Object.keys(rawResponse.structured) : [],
+          responseSummary: {
+            length: rawResponse?.response?.length || 0,
+            hasJson: rawResponse?.response?.includes('{') && rawResponse?.response?.includes('}'),
+            startsWithJson: rawResponse?.response?.trim().startsWith('{'),
+            category: rawResponse?.category,
+            priority: rawResponse?.priority,
+            actionsCount: rawResponse?.actions?.length || 0
+          }
+        }
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// POST /api/llm/suggest-response - Generate AI response suggestion for dashboard
+router.post('/suggest-response', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { conversationId, context } = req.body;
+    
+    if (!context) {
+      return res.status(400).json({
+        success: false,
+        message: 'Context is required'
+      });
+    }
+
+    // Get relevant knowledge base entries
+    const knowledgeQuery = await db.query(`
+      SELECT
+        key,
+        value,
+        confidence
+      FROM knowledge_store
+      WHERE
+        search_vector @@ plainto_tsquery('english', $1)
+        AND superseded_by IS NULL
+        AND verification_status != 'rejected'
+      ORDER BY
+        verification_status = 'verified' DESC,
+        confidence DESC,
+        updated_at DESC
+      LIMIT 5
+    `, [context]);
+
+    // Build enhanced context with knowledge base
+    let enhancedContext = context;
+    if (knowledgeQuery.rows.length > 0) {
+      enhancedContext += '\n\nRelevant Information:\n';
+      knowledgeQuery.rows.forEach((row: any) => {
+        // Extract the actual response from the JSONB value field
+        const response = typeof row.value === 'string'
+          ? row.value
+          : (row.value?.response || row.value?.content || JSON.stringify(row.value));
+        enhancedContext += `- ${response}\n`;
+      });
+    }
+
+    // Generate response using OpenAI
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4-turbo-preview',
+      messages: [
+        {
+          role: 'system',
+          content: `You are a helpful assistant for a golf club. Generate a friendly, professional response to the customer's message. 
+          Use the provided context and knowledge base information to give an accurate, helpful response.
+          Keep responses concise (2-3 sentences max) and conversational.
+          If you're not sure about something, suggest they contact the club directly.`
+        },
+        {
+          role: 'user',
+          content: enhancedContext
+        }
+      ],
+      temperature: 0.7,
+      max_tokens: 150
+    });
+
+    const suggestion = completion.choices[0]?.message?.content || '';
+    
+    // Calculate confidence based on knowledge base matches
+    const confidence = knowledgeQuery.rows.length > 0
+      ? Math.max(...knowledgeQuery.rows.map((r: any) => r.confidence * 100), 70)
+      : 60;
+
+    // Log the suggestion
+    await db.query(`
+      INSERT INTO llm_logs (
+        user_id, prompt, response, model, tokens_used, 
+        response_time_ms, success, created_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+    `, [
+      req.user?.id,
+      context,
+      suggestion,
+      'gpt-4-turbo-preview',
+      completion.usage?.total_tokens || 0,
+      0, // Response time would need to be calculated
+      true
+    ]);
+
+    res.json({
+      success: true,
+      suggestion,
+      confidence,
+      knowledgeMatches: knowledgeQuery.rows.length
+    });
+  } catch (error) {
+    logger.error('Error generating response suggestion:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to generate suggestion',
+      suggestion: 'I can help you with that. Let me check our information and get back to you shortly.',
+      confidence: 50
+    });
+  }
+});
+
+export default router;

@@ -1,0 +1,1628 @@
+import React, { useState, useEffect } from 'react';
+import { useAuthState, useStore } from '@/state/useStore';
+import { http } from '@/api/http';
+import toast from 'react-hot-toast';
+import { Save, Download, Upload, Trash2, Key, Eye, EyeOff, Plus, Edit2, X, Check, RefreshCw, Users, Shield, Clock, Database, Coins, ArrowUp, ArrowDown, Award, Gift } from 'lucide-react';
+import { CustomAchievementCreator } from '@/components/achievements/CustomAchievementCreator';
+import { tokenManager } from '@/utils/tokenManager';
+import logger from '@/services/logger';
+
+
+type User = {
+  id: string;
+  email: string;
+  name: string;
+  role: 'admin' | 'operator' | 'support' | 'kiosk' | 'customer' | 'contractor';
+  phone?: string;
+  status?: 'active' | 'pending_approval' | 'suspended' | 'rejected';
+  createdAt: string;
+  updatedAt: string;
+  signup_date?: string;
+  cc_balance?: number;
+  // Contractor specific fields
+  locations?: string[];
+  permissions?: {
+    canUnlockDoors?: boolean;
+    canSubmitChecklists?: boolean;
+    canViewHistory?: boolean;
+    activeUntil?: string;
+  };
+};
+
+type PasswordValidation = {
+  minLength: boolean;
+  hasUppercase: boolean;
+  hasLowercase: boolean;
+  hasNumber: boolean;
+};
+
+export const OperationsUsers: React.FC = () => {
+  const [users, setUsers] = useState<User[]>([]);
+  const [editingUser, setEditingUser] = useState<string | null>(null);
+  const [editedUser, setEditedUser] = useState<Partial<User>>({});
+  const [showAddUser, setShowAddUser] = useState(false);
+  const [newUser, setNewUser] = useState({
+    email: '',
+    name: '',
+    password: '',
+    role: 'customer' as 'admin' | 'operator' | 'support' | 'kiosk' | 'customer' | 'contractor',
+    phone: '',
+    locations: [] as string[],
+    permissions: {
+      canUnlockDoors: true,
+      canSubmitChecklists: true,
+      canViewHistory: false
+    }
+  });
+  const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [passwordValidation, setPasswordValidation] = useState<PasswordValidation>({
+    minLength: false,
+    hasUppercase: false,
+    hasLowercase: false,
+    hasNumber: false
+  });
+  const [resetPasswordUserId, setResetPasswordUserId] = useState<string | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [autoApproveCustomers, setAutoApproveCustomers] = useState(true);
+  
+  // CC Adjustment states
+  const [showCCAdjustment, setShowCCAdjustment] = useState(false);
+  const [ccAdjustmentUser, setCCAdjustmentUser] = useState<User | null>(null);
+  const [ccBalance, setCCBalance] = useState<number>(0);
+  const [adjustmentAmount, setAdjustmentAmount] = useState<string>('');
+  const [adjustmentType, setAdjustmentType] = useState<'credit' | 'debit'>('credit');
+  const [adjustmentReason, setAdjustmentReason] = useState<string>('');
+  const [loadingBalance, setLoadingBalance] = useState(false);
+  
+  // Achievement states
+  const [showAchievementCreator, setShowAchievementCreator] = useState(false);
+  const [achievementUser, setAchievementUser] = useState<User | null>(null);
+  
+  // Box Management states
+  const [showBoxManagement, setShowBoxManagement] = useState(false);
+  const [boxManagementUser, setBoxManagementUser] = useState<User | null>(null);
+  const [boxCount, setBoxCount] = useState<string>('3');
+  const [userBoxes, setUserBoxes] = useState<any[]>([]);
+  const [loadingBoxes, setLoadingBoxes] = useState(false);
+  
+  const { user } = useAuthState();
+  const token = user?.token || tokenManager.getToken();
+
+  useEffect(() => {
+    fetchUsers();
+    fetchSettings();
+  }, []);
+
+  const fetchSettings = async () => {
+    const authToken = token || tokenManager.getToken();
+    
+    if (!authToken) return;
+    
+    try {
+      // Use the API endpoint correctly with /api prefix
+      const response = await http.get(`system-settings/customer_auto_approval`, {
+
+      });
+      
+      if (response.data.success && response.data.data) {
+        setAutoApproveCustomers(response.data.data.value?.enabled !== false);
+      }
+    } catch (error) {
+      logger.error('Error fetching settings:', error);
+      // Default to true if can't fetch
+      setAutoApproveCustomers(true);
+    }
+  };
+  
+  const updateAutoApproval = async (enabled: boolean) => {
+    const authToken = token || tokenManager.getToken();
+    
+    if (!authToken) return;
+    
+    try {
+      // Use the API endpoint correctly
+      await http.put(
+        `system-settings/customer_auto_approval`,
+        { value: { enabled } },
+
+      );
+      
+      setAutoApproveCustomers(enabled);
+      toast.success(`Customer auto-approval ${enabled ? 'enabled' : 'disabled'}`);
+    } catch (error: any) {
+      logger.error('Error updating setting:', error);
+      toast.error('Failed to update setting');
+      // Revert on error
+      setAutoApproveCustomers(!enabled);
+    }
+  };
+
+  const fetchUsers = async () => {
+    const authToken = token || tokenManager.getToken();
+    
+    if (!authToken) {
+      logger.debug('No token available, skipping users fetch');
+      toast.error('Please login to view users');
+      return;
+    }
+    
+    try {
+      logger.debug('Fetching users from:', `auth/users`);
+      const response = await http.get(`auth/users`, {
+
+      });
+      
+      logger.debug('Users response:', response.data);
+      
+      // Handle both response formats
+      let usersData = [];
+      if (response.data.success && response.data.data) {
+        usersData = Array.isArray(response.data.data) ? response.data.data : [];
+      } else if (Array.isArray(response.data)) {
+        usersData = response.data;
+      } else {
+        logger.error('Unexpected users response format:', response.data);
+        setUsers([]);
+        return;
+      }
+      
+      // Fetch CC balances for customers
+      const customersWithBalances = await Promise.all(
+        usersData.map(async (user: any) => {
+          if (user.role === 'customer') {
+            try {
+              const balanceResponse = await http.get(
+                `challenges/cc-balance/${user.id}`,
+
+              );
+              return {
+                ...user,
+                cc_balance: balanceResponse.data?.data?.balance || 0
+              };
+            } catch (error) {
+              logger.debug(`Could not fetch balance for ${user.name}`);
+              return { ...user, cc_balance: 0 };
+            }
+          }
+          return user;
+        })
+      );
+      
+      setUsers(customersWithBalances);
+    } catch (error: any) {
+      logger.error('Error fetching users:', error.response || error);
+      if (error.response?.status === 401) {
+        toast.error('Session expired. Please login again.');
+        // Optionally redirect to login
+        // window.location.href = '/login';
+      } else if (error.response?.status === 403) {
+        toast.error('Admin access required');
+      } else {
+        toast.error(`Failed to load users: ${error.response?.data?.message || error.message}`);
+      }
+    }
+  };
+
+  const validatePassword = (password: string) => {
+    setPasswordValidation({
+      minLength: password.length >= 6,
+      hasUppercase: /[A-Z]/.test(password),
+      hasLowercase: /[a-z]/.test(password),
+      hasNumber: /[0-9]/.test(password)
+    });
+  };
+
+  const handleEditUser = (user: User) => {
+    setEditingUser(user.id);
+    setEditedUser({
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      phone: user.phone
+    });
+  };
+
+  const handleSaveUser = async () => {
+    try {
+      await http.put(
+        `auth/users/${editingUser}`,
+        editedUser,
+        {
+
+        }
+      );
+      toast.success('User updated successfully');
+      setEditingUser(null);
+      fetchUsers();
+    } catch (error) {
+      logger.error('Error updating user:', error);
+      toast.error('Failed to update user');
+    }
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    if (!confirm('Are you sure you want to delete this user?')) return;
+    
+    try {
+      await http.delete(`auth/users/${userId}`, {
+
+      });
+      toast.success('User deleted successfully');
+      fetchUsers();
+    } catch (error) {
+      logger.error('Error deleting user:', error);
+      toast.error('Failed to delete user');
+    }
+  };
+
+  const handleAddUser = async () => {
+    if (!newUser.email || !newUser.password || !newUser.name) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+    
+    const isValid = Object.values(passwordValidation).every(v => v);
+    if (!isValid) {
+      toast.error('Password does not meet requirements');
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      await http.post(
+        `auth/users`,
+        newUser,
+        {
+
+        }
+      );
+      toast.success('User created successfully');
+      setShowAddUser(false);
+      setNewUser({
+        email: '',
+        name: '',
+        password: '',
+        role: 'customer',
+        phone: '',
+        locations: [],
+        permissions: {
+          canUnlockDoors: true,
+          canSubmitChecklists: true,
+          canViewHistory: false
+        }
+      });
+      fetchUsers();
+    } catch (error) {
+      logger.error('Error creating user:', error);
+      toast.error('Failed to create user');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!newPassword || !resetPasswordUserId) return;
+    
+    const isValid = Object.values(passwordValidation).every(v => v);
+    if (!isValid) {
+      toast.error('Password does not meet requirements');
+      return;
+    }
+    
+    try {
+      await http.post(
+        `auth/users/${resetPasswordUserId}/reset-password`,
+        { newPassword },
+        {
+
+        }
+      );
+      toast.success('Password reset successfully');
+      setResetPasswordUserId(null);
+      setNewPassword('');
+      setShowResetPassword(false);
+    } catch (error) {
+      logger.error('Error resetting password:', error);
+      toast.error('Failed to reset password');
+    }
+  };
+
+  const handleApproveUser = async (userId: string) => {
+    try {
+      await http.put(
+        `auth/users/${userId}/approve`,
+        {},
+        {
+
+        }
+      );
+      toast.success('Customer approved successfully');
+      fetchUsers();
+    } catch (error) {
+      logger.error('Error approving user:', error);
+      toast.error('Failed to approve customer');
+    }
+  };
+
+  const handleRejectUser = async (userId: string) => {
+    if (!confirm('Are you sure you want to reject this customer application?')) return;
+    
+    try {
+      await http.put(
+        `auth/users/${userId}/reject`,
+        {},
+        {
+
+        }
+      );
+      toast.success('Customer application rejected');
+      fetchUsers();
+    } catch (error) {
+      logger.error('Error rejecting user:', error);
+      toast.error('Failed to reject customer');
+    }
+  };
+
+  const handleBackup = async () => {
+    try {
+      const response = await http.get(`auth/backup`, {
+
+      });
+      
+      const blob = new Blob([JSON.stringify(response.data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `users-backup-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      
+      toast.success('Backup downloaded successfully');
+    } catch (error) {
+      logger.error('Error downloading backup:', error);
+      toast.error('Failed to download backup');
+    }
+  };
+
+  const handleRestore = async () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        try {
+          const data = JSON.parse(event.target?.result as string);
+          await http.post(
+            `auth/restore`,
+            data,
+            {
+
+            }
+          );
+          toast.success('Users restored successfully');
+          fetchUsers();
+        } catch (error) {
+          logger.error('Error restoring users:', error);
+          toast.error('Failed to restore users');
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  };
+
+  const openBoxManagement = async (customer: User) => {
+    setBoxManagementUser(customer);
+    setShowBoxManagement(true);
+    setBoxCount('3');
+    
+    // Fetch user's current boxes
+    setLoadingBoxes(true);
+    const authToken = token || tokenManager.getToken();
+    
+    try {
+      const response = await http.get(`boxes/user/${customer.id}`, {
+
+      });
+      
+      if (response.data.success) {
+        setUserBoxes(response.data.data || []);
+      }
+    } catch (error) {
+      logger.error('Error fetching user boxes:', error);
+      setUserBoxes([]);
+    } finally {
+      setLoadingBoxes(false);
+    }
+  };
+
+  const handleGrantBoxes = async () => {
+    if (!boxManagementUser || !boxCount) return;
+    
+    setLoading(true);
+    const authToken = token || tokenManager.getToken();
+    
+    try {
+      const response = await http.post(
+        `boxes/grant`,
+        {
+          userId: boxManagementUser.id,
+          quantity: parseInt(boxCount)
+        },
+        {
+
+        }
+      );
+      
+      if (response.data.success) {
+        toast.success(`Successfully granted ${boxCount} box${parseInt(boxCount) > 1 ? 'es' : ''} to ${boxManagementUser.name}`);
+        setShowBoxManagement(false);
+        setBoxManagementUser(null);
+      } else {
+        toast.error('Failed to grant boxes');
+      }
+    } catch (error: any) {
+      logger.error('Error granting boxes:', error);
+      toast.error(error.response?.data?.message || 'Failed to grant boxes');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleClearBoxes = async () => {
+    if (!boxManagementUser) return;
+    
+    if (!confirm(`Are you sure you want to clear all available boxes for ${boxManagementUser.name}?`)) {
+      return;
+    }
+    
+    setLoading(true);
+    const authToken = token || tokenManager.getToken();
+    
+    try {
+      const response = await http.delete(
+        `boxes/user/${boxManagementUser.id}/available`,
+        {
+
+        }
+      );
+      
+      if (response.data.success) {
+        toast.success(`Cleared all available boxes for ${boxManagementUser.name}`);
+        // Refresh boxes list
+        openBoxManagement(boxManagementUser);
+      } else {
+        toast.error('Failed to clear boxes');
+      }
+    } catch (error: any) {
+      logger.error('Error clearing boxes:', error);
+      toast.error(error.response?.data?.message || 'Failed to clear boxes');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const openCCAdjustment = async (customer: User) => {
+    setCCAdjustmentUser(customer);
+    setShowCCAdjustment(true);
+    setAdjustmentAmount('');
+    setAdjustmentType('credit');
+    setAdjustmentReason('');
+    setLoadingBalance(true);
+    
+    const authToken = token || tokenManager.getToken();
+    
+    try {
+      const response = await http.get(
+        `admin/cc-adjustments/${customer.id}/balance`,
+
+      );
+      
+      if (response.data.success) {
+        setCCBalance(response.data.data.balance);
+      }
+    } catch (error: any) {
+      logger.error('Error fetching CC balance:', error);
+      toast.error('Failed to fetch CC balance');
+      setCCBalance(0);
+    } finally {
+      setLoadingBalance(false);
+    }
+  };
+  
+  const handleCCAdjustment = async () => {
+    const authToken = token || tokenManager.getToken();
+    
+    if (!ccAdjustmentUser) return;
+    
+    const amount = parseFloat(adjustmentAmount);
+    if (isNaN(amount) || amount <= 0) {
+      toast.error('Please enter a valid positive amount');
+      return;
+    }
+    
+    if (!adjustmentReason.trim()) {
+      toast.error('Please provide a reason for the adjustment');
+      return;
+    }
+    
+    if (adjustmentType === 'debit' && amount > ccBalance) {
+      toast.error(`Cannot debit more than current balance (${ccBalance} CC)`);
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      
+      const response = await http.post(
+        `admin/cc-adjustments/${ccAdjustmentUser.id}/adjust`,
+        {
+          amount: amount,
+          type: adjustmentType,
+          reason: adjustmentReason
+        },
+
+      );
+      
+      if (response.data.success) {
+        const data = response.data.data;
+        toast.success(
+          `Successfully ${adjustmentType}ed ${amount} CC. New balance: ${data.balanceAfter} CC`
+        );
+        setShowCCAdjustment(false);
+        setCCAdjustmentUser(null);
+      }
+    } catch (error: any) {
+      logger.error('Error adjusting CC:', error);
+      toast.error(error.response?.data?.error || 'Failed to adjust CC balance');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Separate operators and customers
+  const operators = users.filter(u => u.role !== 'customer');
+  const customers = users.filter(u => u.role === 'customer');
+  
+  // Sort customers: pending first, then active
+  const sortedCustomers = [...customers].sort((a, b) => {
+    if (a.status === 'pending_approval' && b.status !== 'pending_approval') return -1;
+    if (a.status !== 'pending_approval' && b.status === 'pending_approval') return 1;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+  
+  const pendingCount = customers.filter(c => c.status === 'pending_approval').length;
+
+  return (
+    <div className="space-y-6">
+      {/* Settings Section */}
+      <div className="bg-[var(--bg-secondary)] rounded-lg shadow-sm border border-[var(--border-primary)]">
+        <div className="px-6 py-4 border-b border-[var(--border-primary)]">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-[var(--text-primary)]">Registration Settings</h2>
+              <p className="text-sm text-[var(--text-muted)] mt-1">Configure how new accounts are handled</p>
+            </div>
+          </div>
+        </div>
+        <div className="px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <label className="text-sm font-medium text-[var(--text-secondary)]">Auto-approve Customer Accounts</label>
+              <p className="text-xs text-[var(--text-muted)] mt-1">
+                When enabled, customer accounts are immediately active. When disabled, they require admin approval.
+              </p>
+            </div>
+            <button
+              onClick={() => updateAutoApproval(!autoApproveCustomers)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                autoApproveCustomers ? 'bg-primary' : 'bg-[var(--bg-tertiary)]'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  autoApproveCustomers ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Operator Management Section */}
+      <div className="bg-[var(--bg-secondary)] rounded-lg shadow-sm border border-[var(--border-primary)]">
+        <div className="px-6 py-4 border-b border-[var(--border-primary)]">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Users className="h-5 w-5 text-primary" />
+              <h2 className="text-lg font-semibold text-[var(--text-primary)]">Operator Management</h2>
+              <span className="text-sm text-[var(--text-muted)]">({operators.length} operators)</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setShowAddUser(true)}
+                className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover transition-colors flex items-center space-x-2"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Add User</span>
+              </button>
+              <button
+                onClick={fetchUsers}
+                className="p-2 text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded-lg transition-colors"
+                title="Refresh"
+              >
+                <RefreshCw className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-6">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">
+                  <th className="pb-3">Name</th>
+                  <th className="pb-3">Email</th>
+                  <th className="pb-3">Role</th>
+                  <th className="pb-3">Phone</th>
+                  <th className="pb-3">Created</th>
+                  <th className="pb-3">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--border-primary)]">
+                {operators.map((user) => (
+                  <tr key={user.id} className="hover:bg-[var(--bg-hover)]">
+                    <td className="py-3">
+                      {editingUser === user.id ? (
+                        <input
+                          type="text"
+                          value={editedUser.name || ''}
+                          onChange={(e) => setEditedUser({ ...editedUser, name: e.target.value })}
+                          className="px-2 py-1 border border-[var(--border-primary)] rounded-lg text-sm"
+                        />
+                      ) : (
+                        <span className="text-sm font-medium text-[var(--text-primary)]">{user.name}</span>
+                      )}
+                    </td>
+                    <td className="py-3">
+                      {editingUser === user.id ? (
+                        <input
+                          type="email"
+                          value={editedUser.email || ''}
+                          onChange={(e) => setEditedUser({ ...editedUser, email: e.target.value })}
+                          className="px-2 py-1 border border-[var(--border-primary)] rounded-lg text-sm"
+                        />
+                      ) : (
+                        <span className="text-sm text-[var(--text-secondary)]">{user.email}</span>
+                      )}
+                    </td>
+                    <td className="py-3">
+                      {editingUser === user.id ? (
+                        <select
+                          value={editedUser.role || user.role}
+                          onChange={(e) => setEditedUser({ ...editedUser, role: e.target.value as User['role'] })}
+                          className="px-2 py-1 border border-[var(--border-primary)] rounded-lg text-sm"
+                        >
+                          <option value="admin">Admin</option>
+                          <option value="operator">Operator</option>
+                          <option value="support">Support</option>
+                          <option value="kiosk">Kiosk</option>
+                          <option value="customer">Customer</option>
+                          <option value="contractor">Contractor</option>
+                        </select>
+                      ) : (
+                        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                          user.role === 'admin' ? 'bg-purple-100 text-purple-700' :
+                          user.role === 'operator' ? 'bg-blue-100 text-blue-700' :
+                          user.role === 'support' ? 'bg-green-100 text-green-700' :
+                          user.role === 'customer' ? 'bg-orange-100 text-orange-700' :
+                          user.role === 'contractor' ? 'bg-yellow-100 text-yellow-700' :
+                          'bg-gray-100 text-gray-700'
+                        }`}>
+                          {user.role}
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-3">
+                      {editingUser === user.id ? (
+                        <input
+                          type="tel"
+                          value={editedUser.phone || ''}
+                          onChange={(e) => setEditedUser({ ...editedUser, phone: e.target.value })}
+                          className="px-2 py-1 border border-[var(--border-primary)] rounded-lg text-sm"
+                        />
+                      ) : (
+                        <span className="text-sm text-[var(--text-secondary)]">{user.phone || '-'}</span>
+                      )}
+                    </td>
+                    <td className="py-3">
+                      <span className="text-sm text-[var(--text-muted)]">
+                        {new Date(user.createdAt).toLocaleDateString()}
+                      </span>
+                    </td>
+                    <td className="py-3">
+                      <div className="flex items-center space-x-2">
+                        {editingUser === user.id ? (
+                          <>
+                            <button
+                              onClick={handleSaveUser}
+                              className="p-1 text-[var(--status-success)] hover:opacity-80"
+                              title="Save"
+                            >
+                              <Check className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => setEditingUser(null)}
+                              className="p-1 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                              title="Cancel"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => handleEditUser(user)}
+                              className="p-1 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                              title="Edit"
+                            >
+                              <Edit2 className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setResetPasswordUserId(user.id);
+                                setShowResetPassword(true);
+                              }}
+                              className="p-1 text-[var(--status-info)] hover:opacity-80"
+                              title="Reset Password"
+                            >
+                              <Key className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteUser(user.id)}
+                              className="p-1 text-[var(--status-error)] hover:opacity-80"
+                              title="Delete"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* Customer Management Section */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Users className="h-5 w-5 text-orange-500" />
+              <h2 className="text-lg font-semibold text-gray-900">Customer Management</h2>
+              <span className="text-sm text-gray-500">({customers.length} customers)</span>
+              {pendingCount > 0 && (
+                <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded-full">
+                  {pendingCount} pending
+                </span>
+              )}
+            </div>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => {
+                  setNewUser({ ...newUser, role: 'customer' });
+                  setShowAddUser(true);
+                }}
+                className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors flex items-center space-x-2"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Add Customer</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-6">
+          {sortedCustomers.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">
+                    <th className="pb-3">Name</th>
+                    <th className="pb-3">Email</th>
+                    <th className="pb-3">Phone</th>
+                    <th className="pb-3">ClubCoins</th>
+                    <th className="pb-3">Status</th>
+                    <th className="pb-3">Member Since</th>
+                    <th className="pb-3">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--border-primary)]">
+                  {sortedCustomers.map((customer) => (
+                    <tr key={customer.id} className={`hover:bg-gray-50 ${customer.status === 'pending_approval' ? 'bg-yellow-50' : ''}`}>
+                      <td className="py-3">
+                        <span className="text-sm font-medium text-gray-900">{customer.name}</span>
+                      </td>
+                      <td className="py-3">
+                        <span className="text-sm text-gray-600">{customer.email}</span>
+                      </td>
+                      <td className="py-3">
+                        <span className="text-sm text-gray-600">{customer.phone || '-'}</span>
+                      </td>
+                      <td className="py-3">
+                        <div className="flex items-center gap-1">
+                          <Coins className="h-4 w-4 text-yellow-500" />
+                          <span className="text-sm font-medium text-gray-900">
+                            {customer.cc_balance?.toLocaleString() || '0'}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-3">
+                        {customer.status === 'pending_approval' ? (
+                          <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-700">
+                            Pending Approval
+                          </span>
+                        ) : customer.status === 'suspended' ? (
+                          <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700">
+                            Suspended
+                          </span>
+                        ) : (
+                          <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">
+                            Active
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3">
+                        <span className="text-sm text-[var(--text-muted)]">
+                          {new Date(customer.signup_date || customer.createdAt).toLocaleDateString()}
+                        </span>
+                      </td>
+                      <td className="py-3">
+                        <div className="flex items-center space-x-2">
+                          {customer.status === 'pending_approval' ? (
+                            <>
+                              <button
+                                onClick={() => handleApproveUser(customer.id)}
+                                className="px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600"
+                                title="Approve"
+                              >
+                                <Check className="h-3 w-3 inline mr-1" />
+                                Approve
+                              </button>
+                              <button
+                                onClick={() => handleRejectUser(customer.id)}
+                                className="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600"
+                                title="Reject"
+                              >
+                                <X className="h-3 w-3 inline mr-1" />
+                                Reject
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => {
+                                  setAchievementUser(customer);
+                                  setShowAchievementCreator(true);
+                                }}
+                                className="p-1 text-yellow-600 hover:text-yellow-700"
+                                title="Award Achievement"
+                              >
+                                <Award className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => openCCAdjustment(customer)}
+                                className="p-1 text-[var(--status-success)] hover:opacity-80"
+                                title="Adjust CC Balance"
+                              >
+                                <Coins className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => openBoxManagement(customer)}
+                                className="p-1 text-purple-600 hover:text-purple-700"
+                                title="Manage Boxes"
+                              >
+                                <Gift className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => handleEditUser(customer)}
+                                className="p-1 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                                title="Edit"
+                              >
+                                <Edit2 className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setResetPasswordUserId(customer.id);
+                                  setShowResetPassword(true);
+                                }}
+                                className="p-1 text-[var(--status-info)] hover:opacity-80"
+                                title="Reset Password"
+                              >
+                                <Key className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteUser(customer.id)}
+                                className="p-1 text-[var(--status-error)] hover:opacity-80"
+                                title="Delete"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <Users className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500 mb-4">No customers yet</p>
+              <p className="text-sm text-gray-400">Customers can sign up through the mobile app or you can add them manually.</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Access Control Section */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center space-x-2">
+            <Shield className="h-5 w-5 text-primary" />
+            <h2 className="text-lg font-semibold text-gray-900">Access Control</h2>
+          </div>
+        </div>
+        <div className="p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+            <div className="p-4 bg-purple-50 rounded-lg">
+              <h3 className="font-semibold text-purple-900 mb-2">Admin</h3>
+              <ul className="text-sm text-purple-700 space-y-1">
+                <li>• Full system access</li>
+                <li>• User management</li>
+                <li>• Knowledge editing</li>
+                <li>• All operations</li>
+              </ul>
+            </div>
+            <div className="p-4 bg-blue-50 rounded-lg">
+              <h3 className="font-semibold text-blue-900 mb-2">Operator</h3>
+              <ul className="text-sm text-blue-700 space-y-1">
+                <li>• Operations access</li>
+                <li>• Ticket management</li>
+                <li>• Checklists</li>
+                <li>• Basic analytics</li>
+              </ul>
+            </div>
+            <div className="p-4 bg-green-50 rounded-lg">
+              <h3 className="font-semibold text-green-900 mb-2">Support</h3>
+              <ul className="text-sm text-green-700 space-y-1">
+                <li>• Commands access</li>
+                <li>• ClubOS Boy</li>
+                <li>• Message viewing</li>
+                <li>• Limited operations</li>
+              </ul>
+            </div>
+            <div className="p-4 bg-gray-50 rounded-lg">
+              <h3 className="font-semibold text-gray-900 mb-2">Kiosk</h3>
+              <ul className="text-sm text-gray-700 space-y-1">
+                <li>• ClubOS Boy only</li>
+                <li>• Public terminal</li>
+                <li>• Auto-redirect</li>
+                <li>• No admin access</li>
+              </ul>
+            </div>
+            <div className="p-4 bg-orange-50 rounded-lg">
+              <h3 className="font-semibold text-orange-900 mb-2">Customer</h3>
+              <ul className="text-sm text-orange-700 space-y-1">
+                <li>• Mobile app access</li>
+                <li>• Book bays</li>
+                <li>• Social features</li>
+                <li>• View stats</li>
+              </ul>
+            </div>
+            <div className="p-4 bg-indigo-50 rounded-lg">
+              <h3 className="font-semibold text-indigo-900 mb-2">Contractor</h3>
+              <ul className="text-sm text-indigo-700 space-y-1">
+                <li>• Checklists only</li>
+                <li>• Door unlock</li>
+                <li>• Location-based</li>
+                <li>• Time tracking</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Backup/Restore Section */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center space-x-2">
+            <Database className="h-5 w-5 text-primary" />
+            <h2 className="text-lg font-semibold text-gray-900">Backup & Restore</h2>
+          </div>
+        </div>
+        <div className="p-6">
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={handleBackup}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+            >
+              <Download className="h-4 w-4" />
+              <span>Download Backup</span>
+            </button>
+            <button
+              onClick={handleRestore}
+              className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors flex items-center space-x-2"
+            >
+              <Upload className="h-4 w-4" />
+              <span>Restore from Backup</span>
+            </button>
+          </div>
+          <p className="mt-3 text-sm text-gray-600">
+            Regular backups help protect against data loss. Restore with caution as it will overwrite existing users.
+          </p>
+        </div>
+      </div>
+
+      {/* Add User Modal */}
+      {showAddUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4">Add New User</h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={newUser.name}
+                  onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="email"
+                  value={newUser.email}
+                  onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Password <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={newUser.password}
+                    onChange={(e) => {
+                      setNewUser({ ...newUser, password: e.target.value });
+                      validatePassword(e.target.value);
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                <div className="mt-2 space-y-1">
+                  <div className={`text-xs ${passwordValidation.minLength ? 'text-green-600' : 'text-gray-400'}`}>
+                    ✓ At least 8 characters
+                  </div>
+                  <div className={`text-xs ${passwordValidation.hasUppercase ? 'text-green-600' : 'text-gray-400'}`}>
+                    ✓ One uppercase letter
+                  </div>
+                  <div className={`text-xs ${passwordValidation.hasLowercase ? 'text-green-600' : 'text-gray-400'}`}>
+                    ✓ One lowercase letter
+                  </div>
+                  <div className={`text-xs ${passwordValidation.hasNumber ? 'text-green-600' : 'text-gray-400'}`}>
+                    ✓ One number
+                  </div>
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                <select
+                  value={newUser.role}
+                  onChange={(e) => setNewUser({ ...newUser, role: e.target.value as User['role'] })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="admin">Admin</option>
+                  <option value="operator">Operator</option>
+                  <option value="support">Support</option>
+                  <option value="kiosk">Kiosk</option>
+                  <option value="customer">Customer</option>
+                  <option value="contractor">Contractor</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                <input
+                  type="tel"
+                  value={newUser.phone}
+                  onChange={(e) => setNewUser({ ...newUser, phone: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              
+              {/* Location Assignment for Contractors */}
+              {newUser.role === 'contractor' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Assigned Locations</label>
+                  <div className="space-y-2">
+                    {['Bedford', 'Dartmouth', 'Stratford', 'Bayers Lake'].map(location => (
+                      <label key={location} className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          checked={newUser.locations?.includes(location) || false}
+                          onChange={(e) => {
+                            const currentLocations = newUser.locations || [];
+                            if (e.target.checked) {
+                              setNewUser({ ...newUser, locations: [...currentLocations, location] });
+                            } else {
+                              setNewUser({ ...newUser, locations: currentLocations.filter(l => l !== location) });
+                            }
+                          }}
+                          className="rounded border-gray-300 text-primary focus:ring-primary"
+                        />
+                        <span className="text-sm">{location}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    <label className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        checked={newUser.permissions?.canUnlockDoors ?? true}
+                        onChange={(e) => setNewUser({ 
+                          ...newUser, 
+                          permissions: { ...newUser.permissions, canUnlockDoors: e.target.checked }
+                        })}
+                        className="rounded border-gray-300 text-primary focus:ring-primary"
+                      />
+                      <span className="text-sm">Can unlock doors</span>
+                    </label>
+                    <label className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        checked={newUser.permissions?.canSubmitChecklists ?? true}
+                        onChange={(e) => setNewUser({ 
+                          ...newUser, 
+                          permissions: { ...newUser.permissions, canSubmitChecklists: e.target.checked }
+                        })}
+                        className="rounded border-gray-300 text-primary focus:ring-primary"
+                      />
+                      <span className="text-sm">Can submit checklists</span>
+                    </label>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowAddUser(false);
+                  setNewUser({
+                    email: '',
+                    name: '',
+                    password: '',
+                    role: 'customer',
+                    phone: '',
+                    locations: [],
+                    permissions: {
+                      canUnlockDoors: true,
+                      canSubmitChecklists: true,
+                      canViewHistory: false
+                    }
+                  });
+                }}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddUser}
+                disabled={loading}
+                className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover transition-colors disabled:opacity-50"
+              >
+                {loading ? 'Creating...' : 'Create User'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Password Modal */}
+      {showResetPassword && resetPasswordUserId && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4">Reset Password</h3>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                New Password
+              </label>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={newPassword}
+                  onChange={(e) => {
+                    setNewPassword(e.target.value);
+                    validatePassword(e.target.value);
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              <div className="mt-2 space-y-1">
+                <div className={`text-xs ${passwordValidation.minLength ? 'text-green-600' : 'text-gray-400'}`}>
+                  ✓ At least 8 characters
+                </div>
+                <div className={`text-xs ${passwordValidation.hasUppercase ? 'text-green-600' : 'text-gray-400'}`}>
+                  ✓ One uppercase letter
+                </div>
+                <div className={`text-xs ${passwordValidation.hasLowercase ? 'text-green-600' : 'text-gray-400'}`}>
+                  ✓ One lowercase letter
+                </div>
+                <div className={`text-xs ${passwordValidation.hasNumber ? 'text-green-600' : 'text-gray-400'}`}>
+                  ✓ One number
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowResetPassword(false);
+                  setResetPasswordUserId(null);
+                  setNewPassword('');
+                }}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleResetPassword}
+                className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover transition-colors"
+              >
+                Reset Password
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CC Adjustment Modal */}
+      {showCCAdjustment && ccAdjustmentUser && (
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Adjust CC Balance</h3>
+              <button
+                onClick={() => {
+                  setShowCCAdjustment(false);
+                  setCCAdjustmentUser(null);
+                }}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              {/* User Info */}
+              <div className="bg-gray-50 rounded-lg p-3">
+                <div className="text-sm text-gray-600">Customer</div>
+                <div className="font-medium text-gray-900">{ccAdjustmentUser.name}</div>
+                <div className="text-sm text-gray-500">{ccAdjustmentUser.email}</div>
+                <div className="mt-2 flex items-center gap-2">
+                  <Coins className="h-4 w-4 text-green-600" />
+                  <span className="font-semibold text-gray-900">
+                    Current Balance: {loadingBalance ? '...' : `${ccBalance} CC`}
+                  </span>
+                </div>
+              </div>
+              
+              {/* Adjustment Type */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Adjustment Type</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setAdjustmentType('credit')}
+                    className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg border-2 transition-colors ${
+                      adjustmentType === 'credit'
+                        ? 'border-green-500 bg-green-50 text-green-700'
+                        : 'border-gray-300 hover:border-gray-400'
+                    }`}
+                  >
+                    <ArrowUp className="h-4 w-4" />
+                    <span className="font-medium">Credit</span>
+                  </button>
+                  <button
+                    onClick={() => setAdjustmentType('debit')}
+                    className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg border-2 transition-colors ${
+                      adjustmentType === 'debit'
+                        ? 'border-red-500 bg-red-50 text-red-700'
+                        : 'border-gray-300 hover:border-gray-400'
+                    }`}
+                  >
+                    <ArrowDown className="h-4 w-4" />
+                    <span className="font-medium">Debit</span>
+                  </button>
+                </div>
+              </div>
+              
+              {/* Amount */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Amount (CC)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={adjustmentAmount}
+                  onChange={(e) => setAdjustmentAmount(e.target.value)}
+                  placeholder="Enter amount"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+                {adjustmentAmount && (
+                  <div className="mt-1 text-sm text-gray-600">
+                    New balance will be:{' '}
+                    <span className="font-semibold">
+                      {adjustmentType === 'credit'
+                        ? ccBalance + parseFloat(adjustmentAmount || '0')
+                        : ccBalance - parseFloat(adjustmentAmount || '0')
+                      } CC
+                    </span>
+                  </div>
+                )}
+              </div>
+              
+              {/* Reason */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Reason <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={adjustmentReason}
+                  onChange={(e) => setAdjustmentReason(e.target.value)}
+                  placeholder="Enter reason for adjustment (required)"
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+            </div>
+            
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowCCAdjustment(false);
+                  setCCAdjustmentUser(null);
+                }}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCCAdjustment}
+                disabled={loading || !adjustmentAmount || !adjustmentReason.trim()}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                  loading || !adjustmentAmount || !adjustmentReason.trim()
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : adjustmentType === 'credit'
+                    ? 'bg-green-600 text-white hover:bg-green-700'
+                    : 'bg-red-600 text-white hover:bg-red-700'
+                }`}
+              >
+                {loading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    {adjustmentType === 'credit' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
+                    {adjustmentType === 'credit' ? 'Add' : 'Remove'} CC
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Achievement Creator Modal */}
+      {showAchievementCreator && achievementUser && (
+        <CustomAchievementCreator
+          isOpen={showAchievementCreator}
+          onClose={() => {
+            setShowAchievementCreator(false);
+            setAchievementUser(null);
+          }}
+          userId={achievementUser.id}
+          userName={achievementUser.name}
+          userToken={token || tokenManager.getToken() || ''}
+          onSuccess={() => {
+            toast.success('Achievement created and awarded successfully!');
+          }}
+        />
+      )}
+
+      {/* Box Management Modal */}
+      {showBoxManagement && boxManagementUser && (
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Manage Boxes</h3>
+              <button
+                onClick={() => {
+                  setShowBoxManagement(false);
+                  setBoxManagementUser(null);
+                }}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              {/* User Info */}
+              <div className="bg-gray-50 rounded-lg p-3">
+                <div className="text-sm text-gray-600">Customer</div>
+                <div className="font-medium text-gray-900">{boxManagementUser.name}</div>
+                <div className="text-sm text-gray-500">{boxManagementUser.email}</div>
+              </div>
+              
+              {/* Current Boxes */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Current Boxes</label>
+                <div className="bg-gray-50 rounded-lg p-3">
+                  {loadingBoxes ? (
+                    <div className="text-center py-2">
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-purple-600 mx-auto"></div>
+                    </div>
+                  ) : userBoxes.length > 0 ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Available Boxes:</span>
+                        <span className="font-semibold text-purple-600">
+                          {userBoxes.filter(b => b.status === 'available').length}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Opened Boxes:</span>
+                        <span className="font-semibold text-gray-600">
+                          {userBoxes.filter(b => b.status === 'opened').length}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Total Boxes:</span>
+                        <span className="font-semibold text-gray-900">
+                          {userBoxes.length}
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500">No boxes found</p>
+                  )}
+                </div>
+              </div>
+              
+              {/* Grant New Boxes */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Grant New Boxes</label>
+                <div className="flex gap-2">
+                  <select
+                    value={boxCount}
+                    onChange={(e) => setBoxCount(e.target.value)}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  >
+                    <option value="1">1 Box</option>
+                    <option value="3">3 Boxes</option>
+                    <option value="5">5 Boxes</option>
+                    <option value="10">10 Boxes</option>
+                  </select>
+                  <button
+                    onClick={handleGrantBoxes}
+                    disabled={loading}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                      loading
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        : 'bg-purple-600 text-white hover:bg-purple-700'
+                    }`}
+                  >
+                    {loading ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        Granting...
+                      </>
+                    ) : (
+                      <>
+                        <Gift className="h-4 w-4" />
+                        Grant
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+              
+              {/* Clear Available Boxes */}
+              {userBoxes.filter(b => b.status === 'available').length > 0 && (
+                <div className="border-t pt-4">
+                  <button
+                    onClick={handleClearBoxes}
+                    disabled={loading}
+                    className={`w-full px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
+                      loading
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        : 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200'
+                    }`}
+                  >
+                    {loading ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
+                        Clearing...
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="h-4 w-4" />
+                        Clear All Available Boxes
+                      </>
+                    )}
+                  </button>
+                  <p className="text-xs text-gray-500 mt-2 text-center">
+                    This will remove all unopened boxes for this user
+                  </p>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowBoxManagement(false);
+                  setBoxManagementUser(null);
+                }}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};

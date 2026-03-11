@@ -1,0 +1,322 @@
+import { useEffect, useState, useCallback } from 'react';
+import { http } from '@/api/http';
+import { toast } from 'react-hot-toast';
+import { tokenManager } from '@/utils/tokenManager';
+import logger from '@/services/logger';
+
+interface PushNotificationState {
+  isSupported: boolean;
+  permission: NotificationPermission;
+  isSubscribed: boolean;
+  isLoading: boolean;
+  error: string | null;
+}
+
+
+export const usePushNotifications = () => {
+  const [state, setState] = useState<PushNotificationState>({
+    isSupported: false,
+    permission: 'default',
+    isSubscribed: false,
+    isLoading: true,
+    error: null
+  });
+
+  // Check if push notifications are supported
+  useEffect(() => {
+    // Only run on client side
+    if (typeof window === 'undefined') {
+      setState(prev => ({
+        ...prev,
+        isLoading: false
+      }));
+      return;
+    }
+
+    const checkSupport = async () => {
+      const isSupported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+      
+      if (!isSupported) {
+        setState(prev => ({
+          ...prev,
+          isSupported: false,
+          isLoading: false,
+          error: 'Push notifications are not supported in this browser'
+        }));
+        return;
+      }
+
+      // Get current permission state
+      const currentPermission = Notification.permission;
+      logger.debug('Initial notification permission state:', currentPermission);
+
+      setState(prev => ({
+        ...prev,
+        isSupported: true,
+        permission: currentPermission
+      }));
+
+      // Check subscription status
+      await checkSubscription();
+    };
+
+    checkSupport();
+  }, []);
+
+  const checkSubscription = async () => {
+    try {
+      // Check if we're on client side
+      if (typeof window === 'undefined' || !navigator.serviceWorker) {
+        return;
+      }
+
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.getSubscription();
+      
+      logger.debug('Current push subscription:', subscription ? 'Found' : 'Not found');
+      
+      if (subscription) {
+        // Verify with backend
+        const token = typeof window !== 'undefined' ? tokenManager.getToken() : null;
+        if (!token) {
+          logger.debug('No auth token found, skipping subscription check');
+          return;
+        }
+        
+        const response = await http.get('notifications/subscription-status');
+        
+        if (response.data.success) {
+          const data = response.data;
+          logger.debug('Backend subscription status:', data);
+          setState(prev => ({
+            ...prev,
+            isSubscribed: data.data?.subscriptions?.length > 0 || false,
+            isLoading: false
+          }));
+        } else {
+          logger.error('Failed to check subscription status:', response.status);
+          setState(prev => ({
+            ...prev,
+            isSubscribed: false,
+            isLoading: false
+          }));
+        }
+      } else {
+        setState(prev => ({
+          ...prev,
+          isSubscribed: false,
+          isLoading: false
+        }));
+      }
+    } catch (error) {
+      logger.error('Error checking subscription:', error);
+      setState(prev => ({
+        ...prev,
+        isLoading: false,
+        error: 'Failed to check subscription status'
+      }));
+    }
+  };
+
+  const requestPermission = useCallback(async () => {
+    if (!state.isSupported) {
+      toast.error('Push notifications are not supported');
+      return false;
+    }
+
+    try {
+      const permission = await Notification.requestPermission();
+      setState(prev => ({ ...prev, permission }));
+      
+      if (permission === 'granted') {
+        toast.success('Notification permission granted');
+        return true;
+      } else if (permission === 'denied') {
+        toast.error('Notification permission denied');
+        return false;
+      }
+      return false;
+    } catch (error) {
+      logger.error('Error requesting permission:', error);
+      toast.error('Failed to request notification permission');
+      return false;
+    }
+  }, [state.isSupported]);
+
+  const subscribe = useCallback(async () => {
+    // Check if notifications are supported
+    if (!state.isSupported) {
+      toast.error('Push notifications are not supported in this browser');
+      return false;
+    }
+
+    // Check current permission state
+    const currentPermission = Notification.permission;
+    logger.debug('Current notification permission:', currentPermission);
+    
+    if (currentPermission === 'denied') {
+      toast.error('Notifications are blocked. Please enable them in your browser settings.');
+      return false;
+    }
+    
+    if (currentPermission !== 'granted') {
+      const granted = await requestPermission();
+      if (!granted) return false;
+    }
+
+    setState(prev => ({ ...prev, isLoading: true, error: null }));
+
+    try {
+      // Register service worker if not already registered
+      const registration = await navigator.serviceWorker.register('/sw.js');
+      await registration.update();
+
+      // Get VAPID public key from backend
+      const vapidResponse = await http.get('notifications/vapid-key');
+      
+      if (!vapidResponse.data.success) {
+        throw new Error('Failed to get VAPID key');
+      }
+
+      const vapidData = vapidResponse.data;
+      
+      if (!vapidData.success || !vapidData.data?.publicKey) {
+        throw new Error('No VAPID public key available');
+      }
+      
+      const publicKey = vapidData.data.publicKey;
+
+      // Subscribe to push notifications
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey)
+      });
+
+      // Send subscription to backend
+      const response = await http.post('notifications/subscribe', {
+        endpoint: subscription.endpoint,
+        keys: {
+          p256dh: subscription.toJSON().keys?.p256dh || '',
+          auth: subscription.toJSON().keys?.auth || ''
+        }
+      });
+
+      if (!response.data.success) {
+        throw new Error(`Failed to save subscription: ${response.data.message}`);
+      }
+
+      setState(prev => ({
+        ...prev,
+        isSubscribed: true,
+        isLoading: false
+      }));
+
+      toast.success('Push notifications enabled!');
+      return true;
+    } catch (error: any) {
+      logger.error('Error subscribing:', error);
+      
+      // Provide more specific error messages
+      let errorMessage = 'Failed to enable push notifications';
+      if (error.message.includes('VAPID')) {
+        errorMessage = 'Push notification service not configured. Please contact support.';
+      } else if (error.message.includes('subscription')) {
+        errorMessage = 'Failed to create notification subscription. Please try again.';
+      }
+      
+      setState(prev => ({
+        ...prev,
+        isLoading: false,
+        error: errorMessage
+      }));
+      toast.error(errorMessage);
+      return false;
+    }
+  }, [state.isSupported, state.permission, requestPermission]);
+
+  const unsubscribe = useCallback(async () => {
+    setState(prev => ({ ...prev, isLoading: true, error: null }));
+
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.getSubscription();
+
+      if (subscription) {
+        await subscription.unsubscribe();
+      }
+
+      // Notify backend
+      const response = await http.delete('notifications/subscribe');
+
+      if (!response.data.success) {
+        throw new Error('Failed to unsubscribe');
+      }
+
+      setState(prev => ({
+        ...prev,
+        isSubscribed: false,
+        isLoading: false
+      }));
+
+      toast.success('Push notifications disabled');
+      return true;
+    } catch (error) {
+      logger.error('Error unsubscribing:', error);
+      setState(prev => ({
+        ...prev,
+        isLoading: false,
+        error: 'Failed to disable push notifications'
+      }));
+      toast.error('Failed to disable push notifications');
+      return false;
+    }
+  }, []);
+
+  const updatePreferences = useCallback(async (preferences: {
+    newMessages?: boolean;
+    ticketUpdates?: boolean;
+    systemAlerts?: boolean;
+    quietHoursStart?: string;
+    quietHoursEnd?: string;
+  }) => {
+    try {
+      const response = await http.put('notifications/preferences', preferences);
+
+      if (!response.data.success) {
+        throw new Error('Failed to update preferences');
+      }
+
+      toast.success('Notification preferences updated');
+      return true;
+    } catch (error) {
+      logger.error('Error updating preferences:', error);
+      toast.error('Failed to update preferences');
+      return false;
+    }
+  }, []);
+
+  return {
+    ...state,
+    requestPermission,
+    subscribe,
+    unsubscribe,
+    updatePreferences,
+    checkSubscription
+  };
+};
+
+// Helper function to convert VAPID key
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding)
+    .replace(/\-/g, '+')
+    .replace(/_/g, '/');
+
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
