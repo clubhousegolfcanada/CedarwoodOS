@@ -177,11 +177,32 @@ export const createTablesSQL = {
       verification_status VARCHAR(50) DEFAULT 'unverified',
       source_type VARCHAR(100) DEFAULT 'manual',
       category VARCHAR(100) DEFAULT 'general',
+      superseded_by UUID,
+      search_vector tsvector,
       created_by UUID,
       updated_by UUID,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
+  `,
+
+  knowledge_store_trigger: `
+    CREATE OR REPLACE FUNCTION knowledge_store_search_update() RETURNS trigger AS $$
+    BEGIN
+      NEW.search_vector := to_tsvector('english',
+        COALESCE(NEW.key, '') || ' ' ||
+        COALESCE(NEW.value::text, '')
+      );
+      RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql;
+
+    DO $$ BEGIN
+      CREATE TRIGGER knowledge_store_search_trigger
+        BEFORE INSERT OR UPDATE ON knowledge_store
+        FOR EACH ROW EXECUTE FUNCTION knowledge_store_search_update();
+    EXCEPTION WHEN duplicate_object THEN NULL;
+    END $$;
   `,
 
   decision_patterns: `
@@ -283,6 +304,7 @@ export const createIndexesSQL = [
   'CREATE INDEX IF NOT EXISTS idx_knowledge_store_key ON knowledge_store(key);',
   'CREATE INDEX IF NOT EXISTS idx_knowledge_store_category ON knowledge_store(category);',
   'CREATE INDEX IF NOT EXISTS idx_knowledge_store_verification ON knowledge_store(verification_status);',
+  'CREATE INDEX IF NOT EXISTS idx_knowledge_store_search ON knowledge_store USING GIN(search_vector);',
 
   // Decision patterns indexes
   'CREATE INDEX IF NOT EXISTS idx_decision_patterns_signature ON decision_patterns(pattern_signature);',
