@@ -1,6 +1,17 @@
 # CedarwoodOS Changelog
 
-## 2026-03-11 — v0.1.0 — Phase 1 Strip (In Progress)
+## 2026-03-11 — v0.1.0 — Phase 1 Strip and Rebrand
+
+### Rebranding Complete
+- Replaced all "ClubOS" references with "CedarwoodOS" across 83 files
+- Replaced all "Clubhouse" / "Clubhouse 24/7" references with "Cedarwood"
+- Updated page titles, meta tags, PWA manifest, email templates, Slack bot names
+- Updated system prompts, LLM identity, knowledge base content
+- Updated terminal placeholder text from golf to contracting examples
+- Updated CORS origins for new Vercel deployment
+- Updated CSS brand color comments
+- Cleaned .env.example files (removed OpenPhone, HubSpot, UniFi, NinjaOne, PLS vars)
+- Both frontend and backend build successfully
 
 ### Backend — Third-Party Integrations Removed
 - Removed TrackMan integration (route, service, knowledge base)
