@@ -79,26 +79,30 @@ class MediaAssetService {
       let thumbnailData: string | null = null;
 
       const isImage = metadata.mimeType.startsWith('image/');
+      const isPhoto = isImage && !metadata.mimeType.includes('png') && !metadata.mimeType.includes('svg');
 
       if (isImage) {
-        // Strip EXIF metadata (especially GPS for privacy) and normalize to JPEG
-        try {
-          processedBuffer = await sharp(fileBuffer)
-            .rotate() // Auto-rotate based on EXIF orientation before stripping
-            .jpeg({ quality: 85 })
-            .toBuffer();
-        } catch (sharpError) {
-          // If sharp fails (e.g., unsupported format), use original buffer
-          logger.warn(`[MediaAsset] Sharp processing failed for ${metadata.fileName}, using original:`, sharpError);
-          processedBuffer = fileBuffer;
+        // For photos (JPEG/WebP/HEIC): strip EXIF (GPS privacy) and auto-rotate
+        // For logos/PNGs: keep original untouched to preserve transparency + quality
+        if (isPhoto) {
+          try {
+            processedBuffer = await sharp(fileBuffer)
+              .rotate() // Auto-rotate based on EXIF orientation before stripping
+              .jpeg({ quality: 95 }) // High quality — originals are retrievable
+              .toBuffer();
+          } catch (sharpError) {
+            logger.warn(`[MediaAsset] Sharp processing failed for ${metadata.fileName}, using original:`, sharpError);
+            processedBuffer = fileBuffer;
+          }
         }
+        // PNGs/SVGs: processedBuffer stays as original fileBuffer (no conversion)
 
-        // Generate thumbnail (300px max dimension)
+        // Generate thumbnail (300px max dimension) — always JPEG for small size
         try {
           const thumbBuffer = await sharp(fileBuffer)
             .rotate()
             .resize(300, 300, { fit: 'inside', withoutEnlargement: true })
-            .jpeg({ quality: 70 })
+            .jpeg({ quality: 75 })
             .toBuffer();
           thumbnailData = `data:image/jpeg;base64,${thumbBuffer.toString('base64')}`;
         } catch (thumbError) {
@@ -106,10 +110,9 @@ class MediaAssetService {
         }
       }
 
-      // Convert to base64 for storage (Phase 1 - will migrate to S3/R2 later)
-      const fileDataBase64 = isImage
-        ? `data:image/jpeg;base64,${processedBuffer.toString('base64')}`
-        : `data:${metadata.mimeType};base64,${fileBuffer.toString('base64')}`;
+      // Store original quality: preserve mime type for PNGs, use JPEG for processed photos
+      const storedMimeType = isPhoto ? 'image/jpeg' : metadata.mimeType;
+      const fileDataBase64 = `data:${storedMimeType};base64,${processedBuffer.toString('base64')}`;
 
       // Insert into database
       const result = await db.query(
@@ -124,7 +127,7 @@ class MediaAssetService {
           thumbnailData,
           metadata.fileName,
           metadata.fileSize,
-          isImage ? 'image/jpeg' : metadata.mimeType,
+          storedMimeType,
           metadata.userDescription || null,
           metadata.userId,
           metadata.userName,
