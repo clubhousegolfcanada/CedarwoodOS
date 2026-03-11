@@ -26,7 +26,7 @@ export async function convertImageToPdf(base64Image: string): Promise<string> {
         margin: 36, // 0.5 inch margins
         info: {
           Title: 'Receipt',
-          Producer: 'ClubOS Receipt System'
+          Producer: 'CedarwoodOS Receipt System'
         }
       });
 

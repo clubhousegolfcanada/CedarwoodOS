@@ -114,12 +114,9 @@ const corsOptions = {
     const allowedOrigins = [
       'http://localhost:3000',
       'http://localhost:3001',
-      'https://club-osv-2-owqx-2norv2e7j-clubosv2s-projects.vercel.app',
-      'https://club-osv-2-owqx-5pi1k3899-clubosv2s-projects.vercel.app',
-      'https://club-osv-2-owqx.vercel.app',
-      'https://clubosv2.vercel.app',
-      'https://clubos.vercel.app',
-      'https://clubos-frontend.vercel.app',
+      // Legacy Vercel preview URLs can be removed once new deployment is confirmed
+      'https://cedarwoodos.vercel.app',
+      'https://cedarwoodos-frontend.vercel.app',
       /\.vercel\.app$/,  // Allow any Vercel preview deployments
       /\.railway\.app$/  // Allow Railway deployments
     ];
@@ -310,7 +307,7 @@ app.use('/api/process-knowledge', processKnowledgeRoutes);
 // Root endpoint
 app.get('/', (req, res) => {
   res.json({
-    name: 'ClubOS API',
+    name: 'CedarwoodOS API',
     version: process.env.npm_package_version || '1.0.0',
     status: 'running',
     database: 'postgresql',
@@ -337,7 +334,7 @@ app.use(errorHandler);
 // Initialize database and start server
 async function startServer() {
   try {
-    logger.info('🚀 Starting ClubOS Backend...');
+    logger.info('🚀 Starting CedarwoodOS Backend...');
     logger.info(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
     logger.info(`📍 Port: ${PORT}`);
     

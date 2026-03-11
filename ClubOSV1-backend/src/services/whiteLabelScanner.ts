@@ -65,7 +65,7 @@ export class WhiteLabelScanner {
     { term: 'bay', suggestion: 'station', category: 'ui_label' },
     { term: 'simulator', suggestion: 'equipment', category: 'ui_label' },
     { term: 'golf', suggestion: '', category: 'ui_label' },
-    { term: 'clubhouse', suggestion: 'facility', category: 'ui_label' },
+    { term: 'cedarwood', suggestion: 'facility', category: 'ui_label' },
     { term: 'trackman', suggestion: 'tracking system', category: 'ui_label' },
     { term: 'tee', suggestion: 'start position', category: 'ui_label' },
     { term: 'hole', suggestion: 'target', category: 'ui_label' },
@@ -248,8 +248,8 @@ export class WhiteLabelScanner {
   private async scanForBranding(result: ScanResult): Promise<void> {
     // Scan for branding elements
     const brandingPatterns = [
-      { pattern: /ClubOS/gi, type: 'app_name' },
-      { pattern: /Clubhouse 24\/7/gi, type: 'company_name' },
+      { pattern: /CedarwoodOS/gi, type: 'app_name' },
+      { pattern: /Cedarwood/gi, type: 'company_name' },
       { pattern: /#0B3D3A/gi, type: 'primary_color' },
       { pattern: /logo\.(png|svg|jpg)/gi, type: 'logo' },
       { pattern: /favicon/gi, type: 'favicon' }
@@ -284,7 +284,7 @@ export class WhiteLabelScanner {
   private async scanForIntegrations(result: ScanResult): Promise<void> {
     // Scan package.json and environment variables
     try {
-      const packageJsonPath = path.join(this.projectRoot, 'ClubOSV1-backend', 'package.json');
+      const packageJsonPath = path.join(this.projectRoot, 'CedarwoodOS-backend', 'package.json');
       const packageJson = JSON.parse(await fs.readFile(packageJsonPath, 'utf-8'));
 
       // Key integrations to look for

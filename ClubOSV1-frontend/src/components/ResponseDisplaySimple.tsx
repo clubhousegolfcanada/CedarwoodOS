@@ -687,7 +687,7 @@ export const ResponseDisplaySimple: React.FC<Props> = ({ response, route, photos
           </div>
         )}
         <div className="ml-auto">
-          <span>ClubOS AI</span>
+          <span>CedarwoodOS AI</span>
         </div>
       </div>
     </div>

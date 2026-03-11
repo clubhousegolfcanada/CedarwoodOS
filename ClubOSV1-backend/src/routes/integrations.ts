@@ -260,7 +260,7 @@ router.get('/features', authenticate, roleGuard(['admin', 'operator']), async (r
       {
         key: 'customer_kiosk',
         name: 'Customer Kiosk',
-        description: 'ClubOS Boy public interface',
+        description: 'CedarwoodOS public interface',
         enabled: true
       }
     ];

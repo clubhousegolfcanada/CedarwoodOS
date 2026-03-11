@@ -131,8 +131,8 @@ export const KnowledgeRouterPanel: React.FC = () => {
             onChange={(e) => setInput(e.target.value)}
             placeholder="Examples:
 • The HDMI fix for TrackMan is to restart the system
-• Clubhouse Grey color has been updated to #503285  
-• Nick Wang opened a new Better Golf location in PEI
+• Cedarwood brand color has been updated to #503285
+• New vendor partnership established in PEI
 • Emergency contact for facilities is now 555-0199"
             className="w-full min-h-[150px] p-4 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg resize-y"
             disabled={processing}

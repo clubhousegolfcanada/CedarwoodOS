@@ -45,9 +45,9 @@ export class EmailService {
     const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:3001'}/verify-email?token=${token}`;
 
     const mailOptions = {
-      from: process.env.SMTP_FROM || '"ClubOS" <noreply@clubhouse247golf.com>',
+      from: process.env.SMTP_FROM || '"CedarwoodOS" <noreply@cedarwood.com>',
       to: email,
-      subject: 'Verify your ClubOS account',
+      subject: 'Verify your CedarwoodOS account',
       html: `
         <!DOCTYPE html>
         <html>
@@ -64,7 +64,7 @@ export class EmailService {
         <body>
           <div class="container">
             <div class="header">
-              <h1>Welcome to ClubOS!</h1>
+              <h1>Welcome to CedarwoodOS!</h1>
             </div>
             <div class="content">
               <h2>Hi ${name},</h2>
@@ -79,7 +79,7 @@ export class EmailService {
               <p><strong>This link will expire in 24 hours.</strong></p>
               <div class="footer">
                 <p>If you didn't create an account, you can safely ignore this email.</p>
-                <p>© 2025 Clubhouse 24/7. All rights reserved.</p>
+                <p>© 2025 Cedarwood. All rights reserved.</p>
               </div>
             </div>
           </div>
@@ -89,7 +89,7 @@ export class EmailService {
       text: `
         Hi ${name},
 
-        Thanks for signing up for ClubOS! Please verify your email address by clicking the link below:
+        Thanks for signing up for CedarwoodOS! Please verify your email address by clicking the link below:
 
         ${verificationUrl}
 
@@ -98,7 +98,7 @@ export class EmailService {
         If you didn't create an account, you can safely ignore this email.
 
         Best regards,
-        The ClubOS Team
+        The CedarwoodOS Team
       `
     };
 
@@ -132,9 +132,9 @@ export class EmailService {
     const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3001'}/reset-password?token=${token}`;
 
     const mailOptions = {
-      from: process.env.SMTP_FROM || '"ClubOS" <noreply@clubhouse247golf.com>',
+      from: process.env.SMTP_FROM || '"CedarwoodOS" <noreply@cedarwood.com>',
       to: email,
-      subject: 'Reset your ClubOS password',
+      subject: 'Reset your CedarwoodOS password',
       html: `
         <!DOCTYPE html>
         <html>
@@ -166,7 +166,7 @@ export class EmailService {
               <p><strong>This link will expire in 1 hour.</strong></p>
               <div class="footer">
                 <p>If you didn't request a password reset, you can safely ignore this email.</p>
-                <p>© 2025 Clubhouse 24/7. All rights reserved.</p>
+                <p>© 2025 Cedarwood. All rights reserved.</p>
               </div>
             </div>
           </div>
@@ -185,7 +185,7 @@ export class EmailService {
         If you didn't request a password reset, you can safely ignore this email.
 
         Best regards,
-        The ClubOS Team
+        The CedarwoodOS Team
       `
     };
 
@@ -217,9 +217,9 @@ export class EmailService {
     const loginUrl = `${process.env.FRONTEND_URL || 'http://localhost:3001'}/login`;
 
     const mailOptions = {
-      from: process.env.SMTP_FROM || '"ClubOS" <noreply@clubhouse247golf.com>',
+      from: process.env.SMTP_FROM || '"CedarwoodOS" <noreply@cedarwood.com>',
       to: email,
-      subject: 'Welcome to ClubOS - Your account is ready!',
+      subject: 'Welcome to CedarwoodOS - Your account is ready!',
       html: `
         <!DOCTYPE html>
         <html>
@@ -237,26 +237,25 @@ export class EmailService {
         <body>
           <div class="container">
             <div class="header">
-              <h1>Welcome to ClubOS!</h1>
+              <h1>Welcome to CedarwoodOS!</h1>
             </div>
             <div class="content">
               <h2>Hi ${name},</h2>
               <p>Your email has been verified and your account is now active!</p>
-              <p>You've received <strong>100 ClubCoins</strong> as a welcome bonus! 🎉</p>
 
               <h3>What you can do now:</h3>
-              <div class="feature">✅ Book simulators and facilities</div>
-              <div class="feature">✅ Join challenges and competitions</div>
-              <div class="feature">✅ Track your progress on leaderboards</div>
-              <div class="feature">✅ Earn more ClubCoins through activities</div>
+              <div class="feature">✅ Access the operations terminal</div>
+              <div class="feature">✅ Submit and track tickets</div>
+              <div class="feature">✅ Upload and manage documents</div>
+              <div class="feature">✅ Communicate with your team</div>
 
               <p style="text-align: center;">
                 <a href="${loginUrl}" class="button">Sign In to Your Account</a>
               </p>
 
               <div class="footer">
-                <p>Need help? Contact us at support@clubhouse247golf.com</p>
-                <p>© 2025 Clubhouse 24/7. All rights reserved.</p>
+                <p>Need help? Contact us at support@cedarwood.com</p>
+                <p>© 2025 Cedarwood. All rights reserved.</p>
               </div>
             </div>
           </div>
@@ -266,22 +265,20 @@ export class EmailService {
       text: `
         Hi ${name},
 
-        Welcome to ClubOS! Your email has been verified and your account is now active.
-
-        You've received 100 ClubCoins as a welcome bonus! 🎉
+        Welcome to CedarwoodOS! Your email has been verified and your account is now active.
 
         What you can do now:
-        - Book simulators and facilities
-        - Join challenges and competitions
-        - Track your progress on leaderboards
-        - Earn more ClubCoins through activities
+        - Access the operations terminal
+        - Submit and track tickets
+        - Upload and manage documents
+        - Communicate with your team
 
         Sign in to your account: ${loginUrl}
 
-        Need help? Contact us at support@clubhouse247golf.com
+        Need help? Contact us at support@cedarwood.com
 
         Best regards,
-        The ClubOS Team
+        The CedarwoodOS Team
       `
     };
 

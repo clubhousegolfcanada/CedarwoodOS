@@ -10,7 +10,7 @@ router.post('/setup-database', async (req: Request, res: Response) => {
     // Simple security check - only allow with a secret key
     const setupKey = req.headers['x-setup-key'];
     
-    if (setupKey !== 'setup-clubos-db-2025') {
+    if (setupKey !== 'setup-cedarwoodos-db-2025') {
       return res.status(401).json({
         success: false,
         message: 'Invalid setup key'

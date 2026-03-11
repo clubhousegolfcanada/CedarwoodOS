@@ -174,10 +174,10 @@ html, body {
     --bg-hover: #252525;          /* New: hover state background */
     --bg-elevated: #1a1a1a;       /* New: for elevated cards */
     
-    /* Accent colors - ClubOS Brand */
-    --accent: #0B3D3A;            /* ClubOS primary brand color */
-    --accent-hover: #084a45;      /* ClubOS brand hover state */
-    --accent-light: rgba(11, 61, 58, 0.2);  /* ClubOS brand light background */
+    /* Accent colors - CedarwoodOS Brand */
+    --accent: #0B3D3A;            /* CedarwoodOS primary brand color */
+    --accent-hover: #084a45;      /* CedarwoodOS brand hover state */
+    --accent-light: rgba(11, 61, 58, 0.2);  /* CedarwoodOS brand light background */
     
     /* Text colors - improved readability */
     --text-primary: #f0f0f0;      /* Slightly off-white for less harshness */
@@ -210,10 +210,10 @@ html, body {
     --bg-hover: #f0f1f3;          /* New: hover state background */
     --bg-elevated: #ffffff;       /* New: for elevated cards */
     
-    /* Accent colors - ClubOS Brand */
-    --accent: #0B3D3A;            /* ClubOS primary brand color */
-    --accent-hover: #084a45;      /* ClubOS brand hover state */
-    --accent-light: rgba(11, 61, 58, 0.05);  /* ClubOS brand light background */
+    /* Accent colors - CedarwoodOS Brand */
+    --accent: #0B3D3A;            /* CedarwoodOS primary brand color */
+    --accent-hover: #084a45;      /* CedarwoodOS brand hover state */
+    --accent-light: rgba(11, 61, 58, 0.05);  /* CedarwoodOS brand light background */
     
     /* Text colors */
     --text-primary: #111827;      /* Darker for better contrast */

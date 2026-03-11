@@ -82,7 +82,7 @@ Create an improved title that:
 4. Uses " - " to separate major concepts
 
 Examples of GOOD titles:
-- "Clubhouse Brand Colors - Purple #503285 and Grey #7B7B7B - Official Hex Codes"
+- "Cedarwood Brand Colors - Purple #503285 and Grey #7B7B7B - Official Hex Codes"
 - "7-iron Competitor Profile - Nick Wang Owner - Trackman Golf Simulator Facility"
 - "Trackman Reset Procedure - Hold Green Power Button 8 Seconds - Troubleshooting"
 - "Power Outage Emergency Response - Update Skedda Bookings - Contact Utilities"
@@ -192,7 +192,7 @@ Return JSON:
             purple: "#503285",
             grey: "#7B7B7B"
           },
-          usage: "Clubhouse brand colors for all marketing materials"
+          usage: "Cedarwood brand colors for all marketing materials"
         };
         
         // For now, just log what needs to be fixed

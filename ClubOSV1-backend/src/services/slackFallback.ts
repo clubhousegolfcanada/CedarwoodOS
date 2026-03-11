@@ -102,7 +102,7 @@ export class SlackFallbackService {
           userId,
           requestId,
           threadTs,
-          message.channel || process.env.SLACK_CHANNEL || '#clubos-requests',
+          message.channel || process.env.SLACK_CHANNEL || '#cedarwood-requests',
           JSON.stringify(message),
           requestDescription,
           location,
@@ -130,8 +130,8 @@ export class SlackFallbackService {
     }
 
     const message: SlackMessage = {
-      channel: process.env.SLACK_CHANNEL || '#clubos-requests',
-      username: 'ClubOSV1 Bot',
+      channel: process.env.SLACK_CHANNEL || '#cedarwood-requests',
+      username: 'CedarwoodOS Bot',
       text: 'LLM Processing Failed - Manual Review Required',
       attachments: [
         {
@@ -160,7 +160,7 @@ export class SlackFallbackService {
               short: false
             }
           ],
-          footer: 'ClubOSV1 Fallback System',
+          footer: 'CedarwoodOS Fallback System',
           ts: Math.floor(Date.now() / 1000).toString()
         }
       ]
@@ -199,8 +199,8 @@ export class SlackFallbackService {
     }
 
     const message: SlackMessage = {
-      channel: process.env.SLACK_CHANNEL || '#clubos-requests',
-      username: 'ClubOSV1 Bot',
+      channel: process.env.SLACK_CHANNEL || '#cedarwood-requests',
+      username: 'CedarwoodOS Bot',
       text: 'New Request (Direct to Slack)',
       attachments: [
         {
@@ -234,7 +234,7 @@ export class SlackFallbackService {
               short: true
             }
           ],
-          footer: 'ClubOSV1 Direct Message',
+          footer: 'CedarwoodOS Direct Message',
           ts: Math.floor(Date.now() / 1000).toString()
         }
       ]
@@ -249,7 +249,7 @@ export class SlackFallbackService {
         
         // If no channel ID configured, try to find it
         if (!channelId) {
-          const channelName = (process.env.SLACK_CHANNEL || '#clubos-assistants').replace('#', '');
+          const channelName = (process.env.SLACK_CHANNEL || '#cedarwood-assistants').replace('#', '');
           logger.info('No SLACK_CHANNEL_ID configured, attempting to find channel', { 
             channelName,
             webClientExists: !!this.webClient,
@@ -295,7 +295,7 @@ export class SlackFallbackService {
           stack: webApiError.stack,
           errorStack: webApiError instanceof Error ? webApiError.stack : undefined,
           hasWebClient: !!this.webClient,
-          channelName: (process.env.SLACK_CHANNEL || '#clubos-assistants').replace('#', ''),
+          channelName: (process.env.SLACK_CHANNEL || '#cedarwood-assistants').replace('#', ''),
           botTokenConfigured: !!process.env.SLACK_BOT_TOKEN,
           messageToSend: {
             channel: message.channel,
@@ -342,8 +342,8 @@ export class SlackFallbackService {
     const urgencyPrefix = isEmergency ? '🚨 EMERGENCY: ' : isHighPriority ? '⚠️ HIGH PRIORITY: ' : '';
     
     const message: SlackMessage = {
-      channel: process.env.SLACK_CHANNEL || '#clubos-requests',
-      username: 'ClubOSV1 Bot',
+      channel: process.env.SLACK_CHANNEL || '#cedarwood-requests',
+      username: 'CedarwoodOS Bot',
       text: `${urgencyPrefix}Request Processed Successfully`,
       attachments: [
         {
@@ -382,7 +382,7 @@ export class SlackFallbackService {
               short: false
             }
           ],
-          footer: 'ClubOSV1 LLM Processing',
+          footer: 'CedarwoodOS LLM Processing',
           ts: Math.floor(Date.now() / 1000).toString()
         }
       ]
@@ -426,11 +426,11 @@ export class SlackFallbackService {
     // Use facilities channel if specified and ticket is facilities
     const channel = (ticket.category === 'facilities' && process.env.FACILITIES_SLACK_CHANNEL) 
       ? process.env.FACILITIES_SLACK_CHANNEL 
-      : (process.env.SLACK_CHANNEL || '#clubos-requests');
+      : (process.env.SLACK_CHANNEL || '#cedarwood-requests');
 
     const message: SlackMessage = {
       channel,
-      username: 'ClubOSV1 Bot',
+      username: 'CedarwoodOS Bot',
       text: notificationText,
       attachments: [
         {
@@ -469,7 +469,7 @@ export class SlackFallbackService {
               short: true
             }
           ],
-          footer: 'ClubOSV1 Ticket System',
+          footer: 'CedarwoodOS Ticket System',
           ts: Math.floor(Date.now() / 1000).toString()
         }
       ]
@@ -499,8 +499,8 @@ export class SlackFallbackService {
     let userInfo = feedback.userEmail || 'Unknown User';
     
     const message: SlackMessage = {
-      channel: process.env.SLACK_CHANNEL || '#clubos-requests',
-      username: 'ClubOSV1 Bot',
+      channel: process.env.SLACK_CHANNEL || '#cedarwood-requests',
+      username: 'CedarwoodOS Bot',
       text: 'UNHELPFUL RESPONSE ALERT',
       attachments: [
         {
@@ -544,7 +544,7 @@ export class SlackFallbackService {
               short: true
             }
           ],
-          footer: 'ClubOSV1 Feedback System - Action Required',
+          footer: 'CedarwoodOS Feedback System - Action Required',
           ts: Math.floor(Date.now() / 1000).toString()
         }
       ]

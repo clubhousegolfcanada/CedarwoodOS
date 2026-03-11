@@ -360,7 +360,7 @@ router.patch('/:id', authenticate, async (req, res) => {
     const validStatuses = ['open', 'in-progress', 'resolved', 'closed', 'archived'];
     const validPriorities = ['low', 'medium', 'high', 'urgent'];
     const validCategories = ['facilities', 'tech', 'orders'];
-    // Correct Clubhouse 24/7 locations - using proper capitalization with spaces
+    // Correct Cedarwood locations - using proper capitalization with spaces
     const validLocations = ['Bedford', 'Dartmouth', 'Halifax', 'Bayers Lake', 'River Oaks', 'Stratford', 'Truro'];
 
     if (updates.status && !validStatuses.includes(updates.status)) {

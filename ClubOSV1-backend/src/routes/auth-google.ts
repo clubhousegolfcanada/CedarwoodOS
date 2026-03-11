@@ -179,7 +179,7 @@ router.post('/google/token', async (req: Request, res: Response) => {
         error: isCustomer ? 'Invalid email' : 'Domain not allowed',
         message: isCustomer
           ? 'Invalid email address'
-          : 'Only Clubhouse email addresses are permitted'
+          : 'Only Cedarwood email addresses are permitted'
       });
     }
 
@@ -284,7 +284,7 @@ router.get('/google/check-email', (req: Request, res: Response) => {
         allowed,
         message: allowed
           ? 'Email is authorized for Google sign-in'
-          : 'Email domain not authorized. Only Clubhouse emails are permitted.'
+          : 'Email domain not authorized. Only Cedarwood emails are permitted.'
       }
     });
   } catch (error: any) {

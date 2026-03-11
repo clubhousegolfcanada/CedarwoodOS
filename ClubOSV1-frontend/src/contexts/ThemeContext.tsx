@@ -46,7 +46,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // Update theme-color meta tag with proper colors
     const metaTheme = document.querySelector('meta[name="theme-color"]');
     if (metaTheme) {
-      // Use ClubOS brand colors that match the actual theme
+      // Use CedarwoodOS brand colors that match the actual theme
       metaTheme.setAttribute('content', theme === 'dark' ? '#0a0a0a' : '#f9fafb');
     }
 

@@ -16,7 +16,7 @@ interface OperatorLayoutProps {
 
 export const OperatorLayout: React.FC<OperatorLayoutProps> = ({
   children,
-  title = 'ClubOS',
+  title = 'CedarwoodOS',
   description,
   showHeader = false,
   headerTitle,

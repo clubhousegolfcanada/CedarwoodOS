@@ -78,7 +78,7 @@ export const automationPatterns = {
       { pattern: /(?:present|gift)\s+for\s+(?:someone|friend|family|him|her|them)/i, weight: 0.5, description: 'Present for someone' },
       
       // Questions about gift cards
-      { pattern: /(?:do|does)\s+(?:you|clubhouse)\s+(?:sell|offer|have)\s+gift/i, weight: 0.8, description: 'Do you sell gift' },
+      { pattern: /(?:do|does)\s+(?:you|cedarwood)\s+(?:sell|offer|have)\s+gift/i, weight: 0.8, description: 'Do you sell gift' },
       { pattern: /(?:can|could)\s+(?:i|we)\s+(?:buy|purchase|get)\s+(?:a\s+)?gift/i, weight: 0.8, description: 'Can I buy gift' },
       { pattern: /gift\s*card\s+(?:options|choices|amounts|denominations)/i, weight: 0.7, description: 'Gift card options' },
       

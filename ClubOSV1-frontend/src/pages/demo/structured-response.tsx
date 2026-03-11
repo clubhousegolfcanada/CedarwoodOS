@@ -34,7 +34,7 @@ const StructuredResponseDemo: NextPage = () => {
           description: "Call 911 after reaching safety",
           details: {
             number: "911",
-            information: "Fire at ClubHouse247 Golf, 123 Golf Way"
+            information: "Fire at Cedarwood Contracting, 123 Main St"
           }
         },
         {
@@ -183,7 +183,7 @@ const StructuredResponseDemo: NextPage = () => {
                 name: "Eagle Unlimited",
                 price: "$299/month",
                 benefits: ["Unlimited play", "20% off guests", "Priority booking"],
-                bestFor: "Serious golfers (15+ hours/month)"
+                bestFor: "High-volume contractors (15+ projects/month)"
               },
               {
                 name: "Birdie Plus",
@@ -195,7 +195,7 @@ const StructuredResponseDemo: NextPage = () => {
                 name: "Par Player",
                 price: "$79/month",
                 benefits: ["5 hours monthly", "5% off guests"],
-                bestFor: "Casual golfers"
+                bestFor: "Small-scale contractors"
               }
             ]
           }
@@ -206,7 +206,7 @@ const StructuredResponseDemo: NextPage = () => {
           details: {
             tourAvailability: "Daily at 10am, 2pm, and 6pm",
             duration: "30 minutes",
-            bookingLink: "clubhouse247golf.com/tour"
+            bookingLink: "cedarwoodcontracting.com/consultation"
           }
         },
         {
@@ -229,7 +229,7 @@ const StructuredResponseDemo: NextPage = () => {
         required: false,
         to: "sales_team",
         reason: "Custom membership packages available",
-        contactMethod: "email: memberships@clubhouse247golf.com"
+        contactMethod: "email: info@cedarwoodcontracting.com"
       }
     }
   };

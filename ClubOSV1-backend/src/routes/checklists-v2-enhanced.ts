@@ -413,7 +413,7 @@ router.post('/templates/:id/qr-code',
       
       // Generate short URL
       const shortCode = uuidv4().substring(0, 8);
-      const baseUrl = process.env.FRONTEND_URL || 'https://clubos-frontend.vercel.app';
+      const baseUrl = process.env.FRONTEND_URL || 'https://cedarwoodos-frontend.vercel.app';
       const checklistUrl = `${baseUrl}/checklists?template=${id}&location=${location || ''}`;
       
       // Generate QR code

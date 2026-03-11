@@ -278,8 +278,8 @@ const Navigation: React.FC<NavigationProps> = ({ unreadMessages = 0 }) => {
           {/* Logo with tagline - Compressed */}
           <div className="flex items-center">
             <div className="flex items-center gap-2">
-              <Link href={user?.role === 'customer' ? '/customer' : '/'} className="logo text-lg font-semibold" aria-label="ClubOS Home">
-                ClubOS
+              <Link href={user?.role === 'customer' ? '/customer' : '/'} className="logo text-lg font-semibold" aria-label="CedarwoodOS Home">
+                CedarwoodOS
               </Link>
               <span className="text-[10px] text-[var(--text-muted)] hidden md:block">
                 v{packageJson.version}
@@ -316,9 +316,9 @@ const Navigation: React.FC<NavigationProps> = ({ unreadMessages = 0 }) => {
             {/* Desktop Booking Button - Show for all users */}
             {user && (
               <button
-                onClick={() => window.open('https://clubhouse247golf.skedda.com/booking', '_blank')}
+                onClick={() => window.open('#', '_blank')}
                 className="p-2 text-[var(--accent)] hover:bg-[var(--bg-tertiary)] rounded-md transition-all"
-                title="Book a simulator"
+                title="Schedule"
               >
                 <Calendar className="w-5 h-5" />
               </button>
@@ -430,9 +430,9 @@ const Navigation: React.FC<NavigationProps> = ({ unreadMessages = 0 }) => {
             {/* Mobile Booking Button */}
             {user && (
               <button
-                onClick={() => window.open('https://clubhouse247golf.skedda.com/booking', '_blank')}
+                onClick={() => window.open('#', '_blank')}
                 className="p-2 text-[var(--accent)] hover:bg-[var(--bg-tertiary)] rounded-md transition-all"
-                title="Book a simulator"
+                title="Schedule"
               >
                 <Calendar className="w-5 h-5" />
               </button>

@@ -1,7 +1,7 @@
 import { query } from './db';
 import { logger } from './logger';
 
-// Sample knowledge base data for ClubOS
+// Sample knowledge base data for CedarwoodOS
 const knowledgeBaseData = [
   // Booking & Access issues
   {

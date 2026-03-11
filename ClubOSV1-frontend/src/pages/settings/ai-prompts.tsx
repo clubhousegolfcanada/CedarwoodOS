@@ -146,7 +146,7 @@ export default function AIPrompts() {
   return (
     <>
       <Head>
-        <title>ClubOS - AI Prompt Templates</title>
+        <title>CedarwoodOS - AI Prompt Templates</title>
       </Head>
 
       <div className="min-h-screen bg-[var(--bg-primary)] pb-12">

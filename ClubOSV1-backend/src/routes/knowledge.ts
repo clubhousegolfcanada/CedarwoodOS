@@ -486,7 +486,7 @@ router.get('/export', async (req: Request, res: Response) => {
 
     // Generate filename with timestamp
     const timestamp = new Date().toISOString().split('T')[0];
-    const filename = `clubos-knowledge-export-${timestamp}.json`;
+    const filename = `cedarwoodos-knowledge-export-${timestamp}.json`;
     
     // Set response headers for download
     res.setHeader('Content-Type', 'application/json');

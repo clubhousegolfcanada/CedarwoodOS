@@ -5,7 +5,7 @@ import logger from '@/services/logger';
 // External tool links - can be moved to environment variables
 const EXTERNAL_TOOLS = {
   REMOTE_DESKTOP: process.env.NEXT_PUBLIC_SPLASHTOP_URL || 'https://my.splashtop.com/computers',
-  BOOKING_SITE: process.env.NEXT_PUBLIC_SKEDDA_URL || 'https://clubhouse247golf.skedda.com/booking',
+  BOOKING_SITE: process.env.NEXT_PUBLIC_SKEDDA_URL || '#', // TODO: Configure booking URL
   CUSTOMER_INFO: process.env.NEXT_PUBLIC_HUBSPOT_URL || 'https://app.hubspot.com',
   ACCESS_CAMERAS: process.env.NEXT_PUBLIC_UNIFI_URL || 'https://unifi.ui.com',
   STRIPE_RETURNS: process.env.NEXT_PUBLIC_STRIPE_URL || 'https://dashboard.stripe.com',
@@ -51,8 +51,8 @@ const ExternalTools: React.FC = () => {
       color: '#FFFFFF' // White
     },
     {
-      name: 'Simulator Portal',
-      subtitle: 'Trackman',
+      name: 'Equipment Portal',
+      subtitle: 'Tools',
       url: EXTERNAL_TOOLS.TRACKMAN_PORTAL,
       icon: Activity,
       color: '#FF9800' // Orange

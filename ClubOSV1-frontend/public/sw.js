@@ -1,4 +1,4 @@
-// ClubOS Service Worker - Push Notifications & Offline Support
+// CedarwoodOS Service Worker - Push Notifications & Offline Support
 // Last updated: 2025-08-31 - Fixed apiClient double API issue
 const CACHE_NAME = 'clubos-v6-apiclient-fix'; // Force cache clear after fixing apiClient paths
 const OFFLINE_URL = '/offline.html';
@@ -75,7 +75,7 @@ self.addEventListener('push', (event) => {
   }
 
   const options = {
-    body: notification.body || 'New notification from ClubOS',
+    body: notification.body || 'New notification from CedarwoodOS',
     icon: notification.icon || '/clubos-icon-192.png',
     badge: notification.badge || '/clubos-badge-72.png',
     vibrate: notification.vibrate || [200, 100, 200, 100, 200], // Enhanced default vibration
@@ -90,7 +90,7 @@ self.addEventListener('push', (event) => {
 
   event.waitUntil(
     self.registration.showNotification(
-      notification.title || 'ClubOS',
+      notification.title || 'CedarwoodOS',
       options
     )
   );

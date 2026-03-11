@@ -391,7 +391,7 @@ export class KnowledgeSearchService {
       const stopWords = new Set(['does', 'do', 'is', 'are', 'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'about', 'as', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'between', 'under', 'again', 'further', 'then', 'once', 'we', 'you', 'your', 'them', 'their', 'what', 'which', 'who', 'when', 'where', 'why', 'how', 'all', 'both', 'each', 'few', 'more', 'most', 'other', 'some', 'such', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 'can', 'will', 'just', 'should', 'now', 'offer', 'have', 'has', 'had', 'having', 'do', 'does', 'did', 'doing', 'would', 'could', 'ought', 'may', 'might', 'must', 'shall', 'should', 'would', 'am', 'is', 'are', 'was', 'were', 'be', 'been', 'being']);
       
       // Also filter out common business terms that don't add value
-      const businessStopWords = new Set(['clubhouse', 'club', 'house', 'golf', 'simulator']);
+      const businessStopWords = new Set(['cedarwood', 'cedar', 'wood', 'contracting', 'operations']);
       
       const searchTerms = query.toLowerCase()
         .replace(/[?!.,;:]/g, '') // Remove punctuation
@@ -484,7 +484,7 @@ export class KnowledgeSearchService {
     try {
       // Use same stop word filtering as audit log search
       const stopWords = new Set(['does', 'do', 'is', 'are', 'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'about', 'as', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'between', 'under', 'again', 'further', 'then', 'once', 'we', 'you', 'your', 'them', 'their', 'what', 'which', 'who', 'when', 'where', 'why', 'how', 'all', 'both', 'each', 'few', 'more', 'most', 'other', 'some', 'such', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 'can', 'will', 'just', 'should', 'now', 'offer', 'have', 'has', 'had', 'having', 'do', 'does', 'did', 'doing', 'would', 'could', 'ought', 'may', 'might', 'must', 'shall', 'should', 'would', 'am', 'is', 'are', 'was', 'were', 'be', 'been', 'being']);
-      const businessStopWords = new Set(['clubhouse', 'club', 'house', 'golf', 'simulator']);
+      const businessStopWords = new Set(['cedarwood', 'cedar', 'wood', 'contracting', 'operations']);
       
       const searchTerms = query.toLowerCase()
         .replace(/[?!.,;:]/g, '')
@@ -582,7 +582,7 @@ export class KnowledgeSearchService {
 
       // Use same stop word filtering
       const stopWords = new Set(['does', 'do', 'is', 'are', 'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'about', 'as', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'between', 'under', 'again', 'further', 'then', 'once', 'we', 'you', 'your', 'them', 'their', 'what', 'which', 'who', 'when', 'where', 'why', 'how', 'all', 'both', 'each', 'few', 'more', 'most', 'other', 'some', 'such', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 'can', 'will', 'just', 'should', 'now', 'offer', 'have', 'has', 'had', 'having', 'do', 'does', 'did', 'doing', 'would', 'could', 'ought', 'may', 'might', 'must', 'shall', 'should', 'would', 'am', 'is', 'are', 'was', 'were', 'be', 'been', 'being']);
-      const businessStopWords = new Set(['clubhouse', 'club', 'house', 'golf', 'simulator']);
+      const businessStopWords = new Set(['cedarwood', 'cedar', 'wood', 'contracting', 'operations']);
       
       const searchTerms = query.toLowerCase()
         .replace(/[?!.,;:]/g, '')
@@ -742,7 +742,7 @@ export class KnowledgeSearchService {
     // Special handling for gift cards
     if (uniqueResults.some(r => r.content.toLowerCase().includes('gift'))) {
       // Find the result with the URL (most actionable)
-      const withUrl = uniqueResults.find(r => r.content.includes('clubhouse247golf.com'));
+      const withUrl = uniqueResults.find(r => r.content.includes('cedarwood.com'));
       if (withUrl) {
         return `Yes, we offer gift cards! You can purchase them online at ${this.extractUrl(withUrl.content)}`;
       }
@@ -810,7 +810,7 @@ export class KnowledgeSearchService {
    * Extract URL from text
    */
   private extractUrl(text: string): string {
-    const urlMatch = text.match(/(?:www\.|https?:\/\/)?clubhouse247golf\.com[^\s]*/i);
+    const urlMatch = text.match(/(?:www\.|https?:\/\/)?cedarwood\.com[^\s]*/i);
     if (urlMatch) {
       let url = urlMatch[0];
       // Ensure it starts with https://
@@ -819,7 +819,7 @@ export class KnowledgeSearchService {
       }
       return url;
     }
-    return 'https://clubhouse247golf.com/giftcard/purchase';
+    return 'https://cedarwood.com';
   }
   
   /**

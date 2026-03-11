@@ -779,14 +779,14 @@ router.post('/request',
       // Determine the actual data source more accurately
       let dataSource = 'UNKNOWN';
       if (provider === 'local' || provider === 'knowledgeStore') {
-        dataSource = 'CLUBOS_DATABASE';
+        dataSource = 'CEDARWOOD_DATABASE';
       } else if (provider === 'openai' || provider === 'OPENAI') {
         dataSource = 'OPENAI_API';
       } else if (isLocalKnowledge) {
-        dataSource = 'CLUBOS_DATABASE';
+        dataSource = 'CEDARWOOD_DATABASE';
       } else if (processedRequest.llmResponse?.response) {
         // If we have a response but no clear provider, check for OpenAI assistant ID
-        dataSource = processedRequest.llmResponse?.assistantId?.startsWith('asst_') ? 'OPENAI_API' : 'CLUBOS_DATABASE';
+        dataSource = processedRequest.llmResponse?.assistantId?.startsWith('asst_') ? 'OPENAI_API' : 'CEDARWOOD_DATABASE';
       }
 
       // Save response to tracking table for learning and corrections

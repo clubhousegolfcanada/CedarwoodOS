@@ -499,8 +499,8 @@ export class AIAutomationService {
         /gift\s+for\s+(?:my|a|someone)/i,
         /present\s+for/i,
         // Common phrasings (with giftcard as one word)
-        /(?:do|does)\s+(?:you|clubhouse)\s+(?:have|offer|sell)\s+gift\s*cards?/i,
-        /(?:do|does)\s+(?:you|clubhouse)\s+(?:have|offer|sell)\s+giftcards?/i,
+        /(?:do|does)\s+(?:you|cedarwood)\s+(?:have|offer|sell)\s+gift\s*cards?/i,
+        /(?:do|does)\s+(?:you|cedarwood)\s+(?:have|offer|sell)\s+giftcards?/i,
         /(?:can|could)\s+(?:i|we)\s+(?:buy|get|purchase)\s+(?:a\s+)?gift\s*cards?/i,
         /(?:can|could)\s+(?:i|we)\s+(?:buy|get|purchase)\s+(?:a\s+)?giftcards?/i,
         /looking\s+for\s+(?:a\s+)?gift/i,
@@ -1644,11 +1644,11 @@ export class AIAutomationService {
       let extractedInfo: any = {};
       
       // Check for gift card response
-      if (lowerResponse.includes('clubhouse247golf.com/giftcard') || 
+      if (lowerResponse.includes('cedarwood.com/giftcard') ||
           lowerResponse.includes('gift card') && lowerResponse.includes('purchase')) {
         detectedFeature = 'gift_cards';
         extractedInfo = {
-          url: 'www.clubhouse247golf.com/giftcard/purchase',
+          url: 'www.cedarwood.com/giftcard/purchase',
           pattern: 'gift card purchase'
         };
       }

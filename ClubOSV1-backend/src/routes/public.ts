@@ -6,7 +6,7 @@ import axios from 'axios';
 
 const router = express.Router();
 
-// Public ClubOS Boy endpoint - no authentication required
+// Public CedarwoodOS Bot endpoint - no authentication required
 router.post('/clubosboy', publicRateLimiter, async (req, res) => {
   const startTime = Date.now();
   const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
@@ -154,7 +154,7 @@ router.post('/clubosboy', publicRateLimiter, async (req, res) => {
 
     // Log successful response
     const duration = Date.now() - startTime;
-    logger.info('Public ClubOS Boy request processed', {
+    logger.info('Public CedarwoodOS Bot request processed', {
       ip: clientIp,
       location,
       duration,
@@ -167,7 +167,7 @@ router.post('/clubosboy', publicRateLimiter, async (req, res) => {
     });
 
   } catch (error: any) {
-    logger.error('Public ClubOS Boy error:', {
+    logger.error('Public CedarwoodOS Bot error:', {
       error: error.message,
       stack: error.stack,
       ip: clientIp

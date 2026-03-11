@@ -91,7 +91,7 @@ export const ResponseDisplay: React.FC<Props> = ({ response, route }) => {
         </div>
         {/* AI Disclosure */}
         <div className="mt-4 pt-3 border-t border-[var(--border-secondary)]">
-          <span className="text-[10px] text-[var(--text-muted)]">ClubOS AI</span>
+          <span className="text-[10px] text-[var(--text-muted)]">CedarwoodOS AI</span>
         </div>
       </div>
     );
@@ -219,7 +219,7 @@ export const ResponseDisplay: React.FC<Props> = ({ response, route }) => {
 
       {/* AI Disclosure */}
       <div className="mt-4 pt-3 border-t border-[var(--border-secondary)]">
-        <span className="text-[10px] text-[var(--text-muted)]">ClubOS AI</span>
+        <span className="text-[10px] text-[var(--text-muted)]">CedarwoodOS AI</span>
       </div>
     </div>
   );

@@ -108,7 +108,7 @@ const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
       {/* Info text based on mode */}
       {loginMode === 'operator' && (
         <p className="text-xs text-center text-[var(--text-muted)] mt-2">
-          For Clubhouse employees only (@clubhouse247golf.com)
+          For Cedarwood employees only (@cedarwoodcontracting.com)
         </p>
       )}
       {loginMode === 'customer' && (

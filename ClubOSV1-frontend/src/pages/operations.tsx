@@ -129,7 +129,7 @@ export default function Operations() {
 
   return (
     <OperatorLayout
-      title="Operations - ClubOS"
+      title="Operations - CedarwoodOS"
       description="Manage system operations, integrations, and configurations"
       subNavigation={
         <SubNavigation

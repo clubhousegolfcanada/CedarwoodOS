@@ -74,7 +74,7 @@ export const EmergencyResponseExample = () => {
         description: "Call 911 after reaching safety",
         details: {
           number: "911",
-          information: "Fire at ClubHouse247 Golf"
+          information: "Fire at Cedarwood Contracting"
         }
       }
     ],

@@ -407,10 +407,10 @@ Please provide a helpful response to the customer's current message based on the
         ...(isCustomerFacing ? {
           additional_instructions: `CRITICAL: This response is for a CUSTOMER via SMS/text message.
 - Only provide public information
-- Do not mention ClubOS, internal systems, databases, or technical details
+- Do not mention CedarwoodOS, internal systems, databases, or technical details
 - Do not mention employee names or internal procedures
 - Keep responses friendly and professional
-- If asked about something confidential, politely redirect to email booking@clubhouse247golf.com`
+- If asked about something confidential, politely redirect to email support@cedarwood.com`
         } : {})
       });
       

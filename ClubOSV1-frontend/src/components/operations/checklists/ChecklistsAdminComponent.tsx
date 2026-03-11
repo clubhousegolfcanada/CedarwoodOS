@@ -1727,7 +1727,7 @@ export function ChecklistsAdminComponent() {
 ☐ Check bathrooms
 
 Tuesday - Task Day
-☐ Work through ClubOS task list
+☐ Work through CedarwoodOS task list
 
 Friday - Phone Coverage
 ☐ Cover phone lines`}
@@ -2023,7 +2023,7 @@ Friday - Phone Coverage
                     value={newTaskText}
                     onChange={(e) => setNewTaskText(e.target.value)}
                     className="w-full px-3 py-2 border rounded-lg bg-[var(--bg-primary)] text-[var(--text-primary)]"
-                    placeholder="e.g., Clean simulator screens"
+                    placeholder="e.g., Review safety checklist"
                     autoFocus
                   />
                 </div>

@@ -913,7 +913,7 @@ export default function Messages() {
             const newWindow = window.open(url, 'clubos-messages', 'width=1200,height=800,toolbar=no,location=no,directories=no,status=no,menubar=no,scrollbars=yes,resizable=yes');
 
             if (newWindow) {
-              toast('Opening ClubOS in a new window to enable notifications', {
+              toast('Opening CedarwoodOS in a new window to enable notifications', {
                 duration: 5000,
                 icon: '🔔'
               });
@@ -953,7 +953,7 @@ export default function Messages() {
 
   return (
     <OperatorLayout
-      title="Messages - ClubOS"
+      title="Messages - CedarwoodOS"
       description="OpenPhone SMS messaging interface"
       subNavigation={
         <SubNavigation
@@ -963,7 +963,7 @@ export default function Messages() {
       }
     >
 
-        {/* Desktop Layout - Standard ClubOS design */}
+        {/* Desktop Layout - Standard CedarwoodOS design */}
         <div className="hidden md:block">
           <div className="container mx-auto px-4 py-4">
 
@@ -1265,7 +1265,7 @@ export default function Messages() {
                         const newWindow = window.open(url, 'clubos-messages', 'width=1200,height=800,toolbar=no,location=no,directories=no,status=no,menubar=no,scrollbars=yes,resizable=yes');
                         
                         if (newWindow) {
-                          toast('Opening ClubOS in a new window to enable notifications', {
+                          toast('Opening CedarwoodOS in a new window to enable notifications', {
                             duration: 5000,
                             icon: '🔔'
                           });
@@ -1306,7 +1306,7 @@ export default function Messages() {
                 </button>
                 
                 <button
-                  onClick={() => window.open('https://clubhouse247golf.skedda.com/booking', '_blank')}
+                  onClick={() => window.open('#', '_blank')}
                   className="flex items-center gap-1.5 px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-secondary)] rounded-lg border border-[var(--border-primary)] whitespace-nowrap text-sm"
                   title="Check booking site"
                 >
@@ -1339,7 +1339,7 @@ export default function Messages() {
                     }
                   }}
                   className="flex items-center gap-1.5 px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-secondary)] rounded-lg border border-[var(--border-primary)] whitespace-nowrap text-sm"
-                  title="Remote control simulators"
+                  title="Remote access"
                 >
                   <Monitor className="w-4 h-4" />
                   <span>Control</span>

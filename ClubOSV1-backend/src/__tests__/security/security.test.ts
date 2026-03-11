@@ -82,7 +82,7 @@ describe('Security Test Suite', () => {
       
       const existing = await request(app)
         .post('/api/auth/login')
-        .send({ email: 'admin@clubhouse.com', password: 'wrongpassword' });
+        .send({ email: 'admin@cedarwood.com', password: 'wrongpassword' });
       
       // Both should return generic error message
       expect(nonExistent.body.error).toBe(existing.body.error);

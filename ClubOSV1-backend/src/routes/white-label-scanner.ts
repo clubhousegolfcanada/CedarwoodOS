@@ -234,17 +234,17 @@ router.post('/generate-replacements', async (req: Request, res: Response) => {
         if (term.term === 'bay') replacement = 'workout station';
         if (term.term === 'simulator') replacement = 'equipment';
         if (term.term === 'round') replacement = 'session';
-        if (term.term === 'clubhouse') replacement = 'gym';
+        if (term.term === 'cedarwood') replacement = 'gym';
       } else if (industry === 'gaming') {
         if (term.term === 'bay') replacement = 'gaming pod';
         if (term.term === 'simulator') replacement = 'console';
         if (term.term === 'round') replacement = 'match';
-        if (term.term === 'clubhouse') replacement = 'arena';
+        if (term.term === 'cedarwood') replacement = 'arena';
       } else if (industry === 'education') {
         if (term.term === 'bay') replacement = 'learning station';
         if (term.term === 'simulator') replacement = 'training module';
         if (term.term === 'round') replacement = 'lesson';
-        if (term.term === 'clubhouse') replacement = 'campus';
+        if (term.term === 'cedarwood') replacement = 'campus';
       }
 
       replacements[term.term] = replacement;

@@ -46,7 +46,7 @@ async function enableGiftCardAutomation(token: string, responseSource: 'database
       responseSource,
       maxResponses: 2,
       hardcodedResponse: responseSource === 'hardcoded' 
-        ? 'You can purchase gift cards at www.clubhouse247golf.com/giftcard/purchase. They make great gifts!'
+        ? 'You can purchase gift cards at www.cedarwood.com/giftcard/purchase. They make great gifts!'
         : undefined
     };
     

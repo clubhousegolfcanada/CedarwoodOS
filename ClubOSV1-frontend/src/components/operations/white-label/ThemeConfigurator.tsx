@@ -22,8 +22,8 @@ interface ThemePreset {
 
 const THEME_PRESETS: ThemePreset[] = [
   {
-    name: 'ClubOS Green (Current)',
-    description: 'The current ClubOS brand colors',
+    name: 'CedarwoodOS Green (Current)',
+    description: 'The current CedarwoodOS brand colors',
     colors: {
       primary: 'var(--accent)',
       primaryHover: '#084a45',

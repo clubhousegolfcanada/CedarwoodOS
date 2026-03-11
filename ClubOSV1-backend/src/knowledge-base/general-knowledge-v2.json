@@ -39,15 +39,15 @@
     "generalInquiries": {
       "locationInquiry": {
         "symptoms": [
-          "Customer asks about opening a Clubhouse",
+          "Customer asks about opening a Cedarwood location",
           "Questions about building specs or rent"
         ],
         "solutions": [
-          "Refer them to clubhouse247golf.com",
-          "Advise them to email booking@clubhouse247golf.com for more details"
+          "Refer them to cedarwood.com",
+          "Advise them to email booking@cedarwood.com for more details"
         ],
         "timeEstimate": "1 minute",
-        "customerScript": "Best next step is to check clubhouse247golf.com — or shoot us an email at booking@clubhouse247golf.com. We'll guide you from there.",
+        "customerScript": "Best next step is to check cedarwood.com — or shoot us an email at booking@cedarwood.com. We'll guide you from there.",
         "escalation": "Send to Slack if it's a potential partner or high-priority inbound."
       },
       "askedIfStaffed": {
@@ -83,11 +83,11 @@
           "Lost item inquiry"
         ],
         "solutions": [
-          "Direct them to email booking@clubhouse247golf.com with a description",
+          "Direct them to email booking@cedarwood.com with a description",
           "Check lost & found log or camera footage if needed"
         ],
         "timeEstimate": "Varies — 2 to 10 minutes",
-        "customerScript": "Email us at booking@clubhouse247golf.com with what you lost — we'll help you get it back.",
+        "customerScript": "Email us at booking@cedarwood.com with what you lost — we'll help you get it back.",
         "escalation": "Send to Slack if it's a high-value item or multiple customer claims"
       },
       "cardDeclinedDuringBooking": {
@@ -113,15 +113,15 @@
       "equipment": "Ladders available at all locations"
     },
     "contact": {
-      "generalEmail": "booking@clubhouse247golf.com",
-      "website": "clubhouse247golf.com",
-      "pricing": "clubhouse247golf.com/info"
+      "generalEmail": "booking@cedarwood.com",
+      "website": "cedarwood.com",
+      "pricing": "cedarwood.com/info"
     }
   },
   "quickReference": {
     "commonResponses": [
       "Door unlock: Verify identity, unlock remotely",
-      "Lost items: Email booking@clubhouse247golf.com",
+      "Lost items: Email booking@cedarwood.com",
       "No staff on-site: Fully automated with remote support",
       "Payment issues: Try again or different card"
     ]

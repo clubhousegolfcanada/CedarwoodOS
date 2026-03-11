@@ -226,7 +226,7 @@ export const WhiteLabelPlanner: React.FC = () => {
       <div className="bg-[var(--bg-secondary)] rounded-lg p-6 border border-[var(--border-primary)]">
         <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-2">White Label Planning Tool</h2>
         <p className="text-sm text-[var(--text-secondary)]">
-          Complete inventory of ClubOS features, branding elements, SOPs, and integrations.
+          Complete inventory of CedarwoodOS features, branding elements, SOPs, and integrations.
           Analyze platform capabilities for white-label transformation.
         </p>
       </div>

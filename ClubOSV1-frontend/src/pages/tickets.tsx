@@ -63,7 +63,7 @@ export default function TicketCenter() {
 
   return (
     <OperatorLayout
-      title="ClubOS - Ticket Center"
+      title="CedarwoodOS - Ticket Center"
       description="Manage facilities and technical support tickets"
       subNavigation={
         <SubNavigation

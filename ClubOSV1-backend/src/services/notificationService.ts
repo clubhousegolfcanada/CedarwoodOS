@@ -304,7 +304,7 @@ class NotificationService {
   async sendTestNotification(userId: string): Promise<void> {
     await this.sendToUser(userId, {
       title: 'Test Notification',
-      body: 'This is a test notification from ClubOS',
+      body: 'This is a test notification from CedarwoodOS',
       tag: 'test',
       data: {
         type: 'system',

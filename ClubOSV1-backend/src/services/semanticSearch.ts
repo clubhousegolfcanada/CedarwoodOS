@@ -200,7 +200,7 @@ export class SemanticSearchService {
       const response = await this.openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: 'You are a knowledgeable assistant for Clubhouse 24/7 Golf.' },
+          { role: 'system', content: 'You are a knowledgeable assistant for Cedarwood operations.' },
           { role: 'user', content: prompt }
         ],
         temperature: 0.7,

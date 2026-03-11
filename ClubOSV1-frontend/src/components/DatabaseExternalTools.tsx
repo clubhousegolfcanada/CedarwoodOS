@@ -24,7 +24,7 @@ interface DatabaseExternalToolsProps {
 // Default URLs
 const DEFAULT_EXTERNAL_TOOLS = {
   REMOTE_DESKTOP: 'https://my.splashtop.com/computers',
-  BOOKING_SITE: 'https://clubhouse247golf.skedda.com/booking',
+  BOOKING_SITE: '#', // TODO: Configure booking URL
   CUSTOMER_INFO: 'https://app.hubspot.com',
   ACCESS_CAMERAS: 'https://unifi.ui.com',
   STRIPE_RETURNS: 'https://dashboard.stripe.com',
@@ -128,8 +128,8 @@ const DatabaseExternalTools: React.FC<DatabaseExternalToolsProps> = ({ quickStat
     },
     {
       id: 'TRACKMAN_PORTAL',
-      name: 'Simulator Portal',
-      subtitle: 'Trackman',
+      name: 'Equipment Portal',
+      subtitle: 'Tools',
       icon: Activity,
       color: '#FF9800'
     },

@@ -4,7 +4,7 @@ const fs = require('fs').promises;
 const path = require('path');
 
 // Database connection (use your Railway PostgreSQL URL)
-const sequelize = new Sequelize(process.env.DATABASE_URL || 'postgresql://postgres:password@localhost:5432/clubos', {
+const sequelize = new Sequelize(process.env.DATABASE_URL || 'postgresql://postgres:password@localhost:5432/cedarwoodos', {
   dialect: 'postgres',
   logging: console.log,
   dialectOptions: {
@@ -125,7 +125,7 @@ async function migrateUsersToDatabase() {
     if (userCount === 0) {
       console.log('📝 Creating default admin user...');
       const defaultAdmin = await User.create({
-        email: 'admin@clubos.com',
+        email: 'admin@cedarwood.com',
         password: 'ChangeMe123!', // Will be hashed by beforeCreate hook
         name: 'Default Admin',
         role: 'admin'

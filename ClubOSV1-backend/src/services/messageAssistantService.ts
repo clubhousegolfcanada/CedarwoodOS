@@ -85,7 +85,7 @@ export class MessageAssistantService {
 
 1. You are generating a suggested response to a CUSTOMER text message
 2. NEVER mention:
-   - Internal systems (ClubOS, databases, etc.)
+   - Internal systems (CedarwoodOS, databases, etc.)
    - Employee names or personal information
    - Business operations details
    - Pricing structures or discounts not publicly advertised
@@ -143,7 +143,7 @@ Generate a specific, helpful response. If you cannot provide a useful answer, re
       
       // Additional safety filtering - remove any accidental internal references
       const internalTerms = [
-        'ClubOS', 'database', 'system', 'backend', 'API', 'admin',
+        'CedarwoodOS', 'database', 'system', 'backend', 'API', 'admin',
         'employee', 'staff', 'internal', 'confidential', 'password',
         'login', 'access code', 'security', 'SQL', 'error log'
       ];

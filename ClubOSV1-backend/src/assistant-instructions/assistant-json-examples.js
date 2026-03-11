@@ -72,7 +72,7 @@
       "description": "Call 911 immediately",
       "details": {
         "number": "911",
-        "information": "Report fire at ClubHouse247 Golf facility"
+        "information": "Report fire at Cedarwood facility"
       }
     },
     {

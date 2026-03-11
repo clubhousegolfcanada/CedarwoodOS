@@ -133,7 +133,7 @@ router.get('/export', authenticate, async (req, res) => {
     
     // Set headers for file download
     res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Content-Disposition', `attachment; filename="clubos_feedback_${new Date().toISOString().split('T')[0]}.json"`);
+    res.setHeader('Content-Disposition', `attachment; filename="cedarwoodos_feedback_${new Date().toISOString().split('T')[0]}.json"`);
     
     res.send(JSON.stringify(feedbackArray, null, 2));
   } catch (error) {

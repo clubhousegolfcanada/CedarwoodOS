@@ -978,7 +978,7 @@ router.get('/conversation/:id', authenticate, async (req: Request, res: Response
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
       `, [
         conversationId || require('uuid').v4(),
-        'ClubOS',
+        'CedarwoodOS',
         to,
         content,
         'outbound',
@@ -1016,7 +1016,7 @@ router.get('/conversation/:id', authenticate, async (req: Request, res: Response
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
       `, [
         conversationId || openphoneResponse.data.conversationId,
-        'ClubOS',
+        'CedarwoodOS',
         to,
         content,
         'outbound',
@@ -1033,7 +1033,7 @@ router.get('/conversation/:id', authenticate, async (req: Request, res: Response
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
       `, [
         conversationId || require('uuid').v4(),
-        'ClubOS',
+        'CedarwoodOS',
         to,
         content,
         'outbound',

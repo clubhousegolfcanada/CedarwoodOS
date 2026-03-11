@@ -51,7 +51,7 @@ export class KnowledgeRouterService {
     }
     
     try {
-      const systemPrompt = `You are a knowledge router for ClubOS. Parse the user's input to extract knowledge updates for the AI assistants.
+      const systemPrompt = `You are a knowledge router for CedarwoodOS. Parse the user's input to extract knowledge updates for the AI assistants.
 
 Categories and their purposes:
 - emergency: Fire, medical, security, evacuations, urgent safety issues
@@ -62,13 +62,13 @@ Categories and their purposes:
 Extract the following information:
 1. intent: "add" (new info), "update" (modify existing), or "overwrite" (replace all)
 2. category: The type of knowledge (Checklist, Brand, Competitor, SOP, Pricing, etc.)
-3. key: Optional identifier for updates/overwrites (e.g., "Clubhouse Grey color")
+3. key: Optional identifier for updates/overwrites (e.g., "Cedarwood Grey color")
 4. value: The actual knowledge content
 5. target_assistant: Which assistant should receive this (emergency/booking/tech/brand)
 
 Examples:
 - "Add HDMI fix to checklist" → {intent: "add", category: "Checklist", value: "HDMI fix steps...", target_assistant: "tech"}
-- "Update Clubhouse Grey to #503285" → {intent: "update", category: "Brand", key: "Clubhouse Grey", value: "#503285", target_assistant: "brand"}
+- "Update Cedarwood Grey to #503285" → {intent: "update", category: "Brand", key: "Cedarwood Grey", value: "#503285", target_assistant: "brand"}
 - "Nick Wang is opening a Better Golf location in PEI" → {intent: "add", category: "Competitor", value: "Nick Wang - Better Golf - PEI location", target_assistant: "brand"}
 
 Respond with valid JSON only.`;

@@ -12,8 +12,8 @@ const googleClient = new OAuth2Client({
   redirectUri: process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3000/api/auth/google/callback'
 });
 
-// Domain restriction for Clubhouse employees
-const ALLOWED_DOMAINS = ['clubhouse247golf.com', 'clubhouseathleticclub.com'];
+// Domain restriction for Cedarwood employees
+const ALLOWED_DOMAINS = ['cedarwood.com'];
 const ALLOWED_TEST_EMAILS = process.env.GOOGLE_TEST_EMAILS?.split(',') || [];
 
 export interface GoogleUserInfo {
@@ -44,7 +44,7 @@ export const getGoogleAuthUrl = (userType: 'operator' | 'customer' = 'operator')
 
   // Only restrict domain for operators
   if (userType === 'operator') {
-    authOptions.hd = 'clubhouse247golf.com'; // Hint for Google Workspace domain
+    authOptions.hd = 'cedarwood.com'; // Hint for Google Workspace domain
   }
 
   const authUrl = googleClient.generateAuthUrl(authOptions);
@@ -97,7 +97,7 @@ export const exchangeCodeForTokens = async (code: string) => {
 
 /**
  * Verify email domain is allowed
- * For operators: Restrict to Clubhouse domains
+ * For operators: Restrict to Cedarwood domains
  * For customers: Allow all valid emails
  */
 export const isEmailAllowed = (email: string, isCustomer: boolean = false): boolean => {
@@ -204,7 +204,7 @@ export const findOrCreateGoogleUser = async (googleUser: GoogleUserInfo, userTyp
     // Determine role based on user type and domain
     let role = 'customer'; // Default to customer
     if (!isCustomer) {
-      // For operator mode, check if it's a Clubhouse domain
+      // For operator mode, check if it's a Cedarwood domain
       const domain = googleUser.email.split('@')[1];
       role = ALLOWED_DOMAINS.includes(domain) ? 'operator' : 'customer';
     }

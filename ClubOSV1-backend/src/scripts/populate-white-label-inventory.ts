@@ -96,21 +96,21 @@ async function populateFeatures() {
 
 async function populateBranding() {
   const branding: BrandingItem[] = [
-    { element_type: 'Logo', current_value: 'ClubOS Logo', is_customizable: true, notes: 'Main application logo' },
+    { element_type: 'Logo', current_value: 'CedarwoodOS Logo', is_customizable: true, notes: 'Main application logo' },
     { element_type: 'Primary Color', current_value: '#0B3D3A (Teal)', is_customizable: true, notes: 'Primary brand color' },
     { element_type: 'Secondary Color', current_value: '#10b981 (Green)', is_customizable: true, notes: 'Secondary accent color' },
-    { element_type: 'App Name', current_value: 'ClubOS', is_customizable: true, notes: 'Application name throughout UI' },
-    { element_type: 'Tagline', current_value: 'Golf Simulator Management', is_customizable: true, notes: 'App tagline/description' },
-    { element_type: 'Favicon', current_value: 'ClubOS Icon', is_customizable: true, notes: 'Browser tab icon' },
-    { element_type: 'Email Templates', current_value: 'ClubOS branded', is_customizable: true, notes: 'Email notification templates' },
-    { element_type: 'Welcome Messages', current_value: 'Golf-specific greetings', is_customizable: true, notes: 'Onboarding messages' },
+    { element_type: 'App Name', current_value: 'CedarwoodOS', is_customizable: true, notes: 'Application name throughout UI' },
+    { element_type: 'Tagline', current_value: 'Operations Terminal', is_customizable: true, notes: 'App tagline/description' },
+    { element_type: 'Favicon', current_value: 'CedarwoodOS Icon', is_customizable: true, notes: 'Browser tab icon' },
+    { element_type: 'Email Templates', current_value: 'CedarwoodOS branded', is_customizable: true, notes: 'Email notification templates' },
+    { element_type: 'Welcome Messages', current_value: 'Business operations greetings', is_customizable: true, notes: 'Onboarding messages' },
     { element_type: 'Error Messages', current_value: 'Generic', is_customizable: false, notes: 'System error messages' },
     { element_type: 'Font Family', current_value: 'System default', is_customizable: true, notes: 'Typography choices' },
     { element_type: 'Button Styles', current_value: 'Rounded corners', is_customizable: true, notes: 'UI component styling' },
     { element_type: 'Navigation Style', current_value: 'Top bar', is_customizable: false, notes: 'Navigation layout' },
     { element_type: 'Dashboard Layout', current_value: 'Card-based', is_customizable: true, notes: 'Dashboard component arrangement' },
-    { element_type: 'Login Page', current_value: 'ClubOS branded', is_customizable: true, notes: 'Authentication page branding' },
-    { element_type: 'Footer Text', current_value: '© ClubOS', is_customizable: true, notes: 'Copyright and footer info' }
+    { element_type: 'Login Page', current_value: 'CedarwoodOS branded', is_customizable: true, notes: 'Authentication page branding' },
+    { element_type: 'Footer Text', current_value: '© CedarwoodOS', is_customizable: true, notes: 'Copyright and footer info' }
   ];
 
   for (const item of branding) {

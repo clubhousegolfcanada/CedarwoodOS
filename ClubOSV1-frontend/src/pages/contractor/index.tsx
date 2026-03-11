@@ -36,7 +36,7 @@ export default function ContractorDashboard() {
   return (
     <>
       <Head>
-        <title>ClubOS - Redirecting...</title>
+        <title>CedarwoodOS - Redirecting...</title>
       </Head>
       <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
         <div className="text-[var(--text-secondary)]">Redirecting...</div>

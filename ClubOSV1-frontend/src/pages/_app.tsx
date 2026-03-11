@@ -176,7 +176,7 @@ function AppContent({ Component, pageProps }: AppContentProps) {
           if (headerWrapper) headerWrapper.style.display = 'none';
         } catch (e) {
           // Cross-origin restrictions, rely on postMessage
-          logger.debug('ClubOS: Using postMessage for nav control');
+          logger.debug('CedarwoodOS: Using postMessage for nav control');
         }
       }
     }

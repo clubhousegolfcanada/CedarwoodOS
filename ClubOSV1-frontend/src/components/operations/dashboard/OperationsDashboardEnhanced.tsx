@@ -117,7 +117,7 @@ export function OperationsDashboardEnhanced() {
           id: msg.id,
           conversationId: msg.conversation_id || msg.id,
           from: msg.from_number || msg.from || 'Customer',
-          to: msg.to || 'ClubOS',
+          to: msg.to || 'CedarwoodOS',
           phoneNumber: msg.from_number,
           email: msg.email,
           content: msg.body || msg.content,

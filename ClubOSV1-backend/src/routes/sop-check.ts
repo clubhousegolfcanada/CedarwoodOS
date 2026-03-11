@@ -24,7 +24,7 @@ router.get('/check-embeddings', authenticate, async (req: Request, res: Response
     results.byAssistant = byAssistant.rows;
     
     // 3. Search for specific terms
-    const searchTerms = ['7iron', 'fan', 'bettergolf', 'nick', 'ClubOS', 'support'];
+    const searchTerms = ['7iron', 'fan', 'bettergolf', 'nick', 'CedarwoodOS', 'support'];
     results.termSearches = {};
     
     for (const term of searchTerms) {

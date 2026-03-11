@@ -303,8 +303,8 @@ export default function Home() {
 
   return (
     <OperatorLayout
-      title="ClubOS - Golf Simulator Management"
-      description="Dashboard for golf simulator facility management"
+      title="CedarwoodOS - Operations Terminal"
+      description="Dashboard for business operations management"
       padding="lg"
     >
           {/* Main Content Grid - Optimized for no-scroll */}

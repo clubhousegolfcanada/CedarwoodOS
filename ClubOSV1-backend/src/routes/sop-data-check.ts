@@ -18,7 +18,7 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
     `);
     
     // Search for specific terms
-    const searchTerms = ['7iron', 'bettergolf', 'fan', 'nick', 'clubos'];
+    const searchTerms = ['7iron', 'bettergolf', 'fan', 'nick', 'cedarwood'];
     const searchResults = {};
     
     for (const term of searchTerms) {

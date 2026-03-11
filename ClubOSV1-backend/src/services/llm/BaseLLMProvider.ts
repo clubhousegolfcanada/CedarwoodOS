@@ -58,7 +58,7 @@ export abstract class BaseLLMProvider implements LLMProvider {
    * Common method to format the system prompt
    */
   protected getSystemPrompt(userContext?: string): string {
-    return `You are ClubOSV1, an intelligent operations assistant for Clubhouse 24/7 Golf facility operators and managers.
+    return `You are CedarwoodOS, an intelligent operations assistant for Cedarwood business operators and managers.
 
 SYSTEM CONTEXT:
 - You assist facility operators, managers, and staff (NOT customers)

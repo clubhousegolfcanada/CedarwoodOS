@@ -1,7 +1,7 @@
 {
-  "name": "ClubOS - Golf Simulator Management",
-  "short_name": "ClubOS",
-  "description": "AI-powered golf simulator management system for Clubhouse 24/7 Golf",
+  "name": "CedarwoodOS - Operations Terminal",
+  "short_name": "CedarwoodOS",
+  "description": "AI-powered business operations terminal for Cedarwood Contracting",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

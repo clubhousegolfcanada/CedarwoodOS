@@ -6,15 +6,15 @@ export default function Document() {
       <Head>
         {/* Standardized viewport configuration for optimal mobile experience */}
         <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover, interactive-widget=resizes-content" />
-        <meta name="description" content="ClubOS - AI-powered golf simulator management system" />
+        <meta name="description" content="CedarwoodOS - AI-powered business operations terminal" />
         <meta name="theme-color" content="#0a0a0a" />
 
         {/* PWA Meta Tags */}
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="apple-mobile-web-app-title" content="ClubOS" />
-        <meta name="application-name" content="ClubOS" />
+        <meta name="apple-mobile-web-app-title" content="CedarwoodOS" />
+        <meta name="application-name" content="CedarwoodOS" />
         <meta name="format-detection" content="telephone=no" />
         <meta name="msapplication-TileColor" content="#0B3D3A" />
         <meta name="msapplication-navbutton-color" content="#0a0a0a" />

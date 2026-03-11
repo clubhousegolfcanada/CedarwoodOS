@@ -275,7 +275,7 @@ export default function ChecklistsAdmin() {
   return (
     <>
       <Head>
-        <title>ClubOS - Checklist Administration</title>
+        <title>CedarwoodOS - Checklist Administration</title>
         <meta name="description" content="Manage checklist templates and performance" />
       </Head>
 

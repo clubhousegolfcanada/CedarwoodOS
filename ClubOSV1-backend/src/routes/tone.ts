@@ -11,7 +11,7 @@ const router = Router();
 // Your OpenAI Assistant ID for tone conversion
 const TONE_ASSISTANT_ID = process.env.TONE_ASSISTANT_ID || 'asst_jvkYiS8LKwfaNOuGeEagKAgi';
 
-// Convert text to Clubhouse tone
+// Convert text to Cedarwood tone
 router.post('/convert', 
   strictLimiter,
   validate([

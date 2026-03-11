@@ -284,7 +284,7 @@ router.post('/commands',
 
       // Handle different commands
       switch (command) {
-        case '/clubos':
+        case '/cedarwood':
           // Process the command
           const requestId = uuidv4();
           const userRequest: UserRequest = {
@@ -309,7 +309,7 @@ router.post('/commands',
         case '/booking':
           return res.json({
             response_type: 'ephemeral',
-            text: 'Please use the ClubOSV1 web interface for bookings: ' + 
+            text: 'Please use the CedarwoodOS web interface for bookings: ' +
                   (process.env.FRONTEND_URL || 'http://localhost:3000')
           });
 
@@ -402,7 +402,7 @@ router.get('/status', async (req: Request, res: Response, next: NextFunction) =>
         enabled: slackConfig.enabled,
         webhookConfigured: Boolean(process.env.SLACK_WEBHOOK_URL),
         signingSecretConfigured: Boolean(process.env.SLACK_SIGNING_SECRET),
-        channel: process.env.SLACK_CHANNEL || '#clubos-requests',
+        channel: process.env.SLACK_CHANNEL || '#cedarwood-requests',
         stats: {
           totalMessages: parseInt(stats.slack_messages) || 0,
           last24Hours: parseInt(stats.recent) || 0,
@@ -446,7 +446,7 @@ router.get('/thread-replies/:threadTs', async (req: Request, res: Response, next
     
     if (!channelId) {
       // Try to get channel ID from channel name
-      const channelName = (process.env.SLACK_CHANNEL || '#clubos-assistants').replace('#', '');
+      const channelName = (process.env.SLACK_CHANNEL || '#cedarwood-assistants').replace('#', '');
       const channelsResponse = await axios.get('https://slack.com/api/conversations.list', {
         headers: {
           'Authorization': `Bearer ${botToken}`,
@@ -575,7 +575,7 @@ router.post('/reply',
       
       if (!channelId) {
         // Try to get channel ID from channel name
-        const channelName = (process.env.SLACK_CHANNEL || '#clubos-assistants').replace('#', '');
+        const channelName = (process.env.SLACK_CHANNEL || '#cedarwood-assistants').replace('#', '');
         const channelsResponse = await axios.get('https://slack.com/api/conversations.list', {
           headers: {
             'Authorization': `Bearer ${botToken}`,
@@ -608,9 +608,9 @@ router.post('/reply',
         slackResponse = await axios.post('https://slack.com/api/chat.postMessage', {
         channel: channelId,
         thread_ts: thread_ts,
-        text: `[ClubOS ${req.user?.name || 'User'}]: ${text}`,
+        text: `[CedarwoodOS ${req.user?.name || 'User'}]: ${text}`,
         as_user: false,
-        username: 'ClubOS',
+        username: 'CedarwoodOS',
         icon_emoji: ':robot_face:'
       }, {
         headers: {
@@ -650,8 +650,8 @@ router.post('/reply',
            VALUES ($1, $2, $3, $4, $5)`,
           [
             thread_ts,
-            req.user?.name || 'ClubOS User',
-            req.user?.id || 'clubos',
+            req.user?.name || 'CedarwoodOS User',
+            req.user?.id || 'cedarwood',
             text,
             new Date()
           ]
@@ -774,7 +774,7 @@ router.get('/debug-channel', async (req: Request, res: Response, next: NextFunct
     }
     
     // Get channel info
-    const channelName = (process.env.SLACK_CHANNEL || '#clubos-assistants').replace('#', '');
+    const channelName = (process.env.SLACK_CHANNEL || '#cedarwood-assistants').replace('#', '');
     const channelsResponse = await axios.get('https://slack.com/api/conversations.list', {
       headers: {
         'Authorization': `Bearer ${botToken}`,
@@ -809,7 +809,7 @@ router.get('/debug-channel', async (req: Request, res: Response, next: NextFunct
     res.json({
       success: true,
       data: {
-        configuredChannel: process.env.SLACK_CHANNEL || '#clubos-assistants',
+        configuredChannel: process.env.SLACK_CHANNEL || '#cedarwood-assistants',
         channelName,
         channelInfo,
         recentMessages
@@ -825,7 +825,7 @@ router.get('/debug-channel', async (req: Request, res: Response, next: NextFunct
 router.get('/test-web-api', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const botToken = process.env.SLACK_BOT_TOKEN;
-    const channelName = (process.env.SLACK_CHANNEL || '#clubos-assistants').replace('#', '');
+    const channelName = (process.env.SLACK_CHANNEL || '#cedarwood-assistants').replace('#', '');
     
     const result = {
       hasBotToken: !!botToken,
@@ -906,10 +906,10 @@ router.post('/test', async (req: Request, res: Response, next: NextFunction) => 
     }
 
     const testMessage = {
-      channel: process.env.SLACK_CHANNEL || '#clubos-requests',
-      username: 'ClubOSV1 Bot',
+      channel: process.env.SLACK_CHANNEL || '#cedarwood-requests',
+      username: 'CedarwoodOS Bot',
       icon_emoji: ':test_tube:',
-      text: 'Test message from ClubOSV1',
+      text: 'Test message from CedarwoodOS',
       attachments: [
         {
           color: 'good',
@@ -932,7 +932,7 @@ router.post('/test', async (req: Request, res: Response, next: NextFunction) => 
               short: true
             }
           ],
-          footer: 'ClubOSV1 Test',
+          footer: 'CedarwoodOS Test',
           ts: Math.floor(Date.now() / 1000).toString()
         }
       ]
@@ -1022,16 +1022,16 @@ async function handleShortcut(payload: any) {
 }
 
 function getHelpText(): string {
-  return `*ClubOSV1 Slack Commands*
+  return `*CedarwoodOS Slack Commands*
 
 Available commands:
-• \`/clubos [request]\` - Submit a request to ClubOSV1
+• \`/cedarwood [request]\` - Submit a request to CedarwoodOS
 • \`/booking\` - Get link to booking interface
 • \`/help\` - Show this help message
 
 Examples:
-• \`/clubos The simulator in bay 3 is not turning on\`
-• \`/clubos Need to book a tournament for next Saturday\`
+• \`/cedarwood The equipment at site 3 is not working\`
+• \`/cedarwood Need to schedule a job for next Saturday\`
 
 For more information, visit: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`;
 }

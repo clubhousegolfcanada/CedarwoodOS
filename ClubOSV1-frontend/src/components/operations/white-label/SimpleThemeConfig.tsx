@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Palette, Copy, Check, RefreshCw } from 'lucide-react';
 
 const PRESET_COLORS = [
-  { name: 'ClubOS Green', primary: 'var(--accent)', hover: '#084a45' },
+  { name: 'CedarwoodOS Green', primary: 'var(--accent)', hover: '#084a45' },
   { name: 'Corporate Blue', primary: '#1e40af', hover: '#1e3a8a' },
   { name: 'Modern Purple', primary: '#7c3aed', hover: '#6d28d9' },
   { name: 'Ocean Teal', primary: '#0891b2', hover: '#0e7490' },

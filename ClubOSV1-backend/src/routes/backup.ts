@@ -23,7 +23,7 @@ const ALLOWED_TABLES = new Set([
 router.get('/export', authenticate, authorize(['admin']), async (req, res) => {
   try {
     const timestamp = new Date().toISOString().replace(/:/g, '-');
-    const filename = `clubos_backup_${timestamp}.sql`;
+    const filename = `cedarwoodos_backup_${timestamp}.sql`;
     
     // Get database connection details
     const dbUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL;
@@ -71,7 +71,7 @@ router.get('/export', authenticate, authorize(['admin']), async (req, res) => {
       
       // Send as JSON
       res.setHeader('Content-Type', 'application/json');
-      res.setHeader('Content-Disposition', `attachment; filename="clubos_backup_${timestamp}.json"`);
+      res.setHeader('Content-Disposition', `attachment; filename="cedarwoodos_backup_${timestamp}.json"`);
       return res.send(JSON.stringify(backup, null, 2));
     }
     

@@ -144,7 +144,7 @@ export async function sendTestNotification(req: Request, res: Response) {
   try {
     await notificationService.sendToUser(req.user!.id, {
       title: 'Test Notification',
-      body: 'This is a test notification from ClubOS. You should feel vibration!',
+      body: 'This is a test notification from CedarwoodOS. You should feel vibration!',
       vibrate: [200, 100, 200, 100, 200], // Test vibration pattern
       sound: 'default',
       requireInteraction: true,

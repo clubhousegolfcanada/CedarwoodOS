@@ -48,7 +48,7 @@ const LoginPage = () => {
 
   // Auto-detect operator mode based on email domain
   useEffect(() => {
-    if (email && email.endsWith('@clubhouse247golf.com')) {
+    if (email && email.endsWith('@cedarwoodcontracting.com')) {
       setLoginMode('operator');
     }
   }, [email]);
@@ -167,7 +167,7 @@ const LoginPage = () => {
       <div className="max-w-md w-full space-y-6">
         <div>
           <h1 className="text-center text-2xl sm:text-3xl font-bold bg-gradient-to-r from-[var(--accent)] to-teal-400 bg-clip-text text-transparent">
-            {loginMode === 'customer' ? 'Clubhouse Golf' : 'ClubOS'}
+            {loginMode === 'customer' ? 'Cedarwood' : 'CedarwoodOS'}
           </h1>
           <h2 className="mt-4 sm:mt-6 text-center text-xl sm:text-2xl font-semibold text-[var(--text-primary)]">
             {loginMode === 'customer' ?
@@ -225,7 +225,7 @@ const LoginPage = () => {
                   type="email"
                   autoComplete="email"
                   className="mt-1 block w-full px-3 py-2.5 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-md text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent text-base"
-                  placeholder="email@clubhouse247golf.com"
+                  placeholder="email@cedarwoodcontracting.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required

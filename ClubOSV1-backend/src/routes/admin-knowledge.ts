@@ -7,7 +7,7 @@ import { logger } from '../utils/logger';
 
 const router = Router();
 
-// Essential operational knowledge for Clubhouse 24/7 Golf
+// Essential operational knowledge for Cedarwood
 const staticKnowledge = [
   // Emergency procedures
   {

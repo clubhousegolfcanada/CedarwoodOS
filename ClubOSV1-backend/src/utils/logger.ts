@@ -37,7 +37,7 @@ const consoleFormat = winston.format.combine(
 export const logger = winston.createLogger({
   level: process.env.LOG_LEVEL || 'info',
   format: logFormat,
-  defaultMeta: { service: 'clubosv1-backend' },
+  defaultMeta: { service: 'cedarwoodos-backend' },
   transports: [
     // Console transport
     new winston.transports.Console({

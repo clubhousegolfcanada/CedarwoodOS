@@ -8,7 +8,7 @@ import logger from '@/services/logger';
 // Define allowed origins for postMessage (update with your production domain)
 const ALLOWED_ORIGINS = [
   'https://club-osv-2-owqx.vercel.app',
-  'https://clubhouse247golf.com',
+  'https://cedarwoodcontracting.com',
   'http://localhost:3000',
   'http://localhost:3001',
   'http://localhost:3002'

@@ -5,7 +5,7 @@ import { db } from './database';
 export const ensureAdminUser = async () => {
   try {
     // Get admin credentials from environment or use defaults
-    const adminEmail = process.env.ADMIN_EMAIL || 'admin@clubhouse247golf.com';
+    const adminEmail = process.env.ADMIN_EMAIL || 'admin@cedarwood.com';
     const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
     const adminName = process.env.ADMIN_NAME || 'Admin User';
     

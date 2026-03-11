@@ -585,7 +585,7 @@ const RequestForm: React.FC = () => {
         const newReply = {
           ts: Date.now().toString(),
           user_name: 'You',
-          user: user?.name || 'ClubOS User',
+          user: user?.name || 'CedarwoodOS User',
           text: replyText.trim(),
           timestamp: new Date().toISOString(),
           is_from_clubos: true
@@ -706,7 +706,7 @@ const RequestForm: React.FC = () => {
       <div className="card group" data-terminal="clubos-terminal">
         {/* Title Header with Update button on right */}
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-semibold">ClubOS Terminal</h3>
+          <h3 className="text-lg font-semibold">CedarwoodOS Terminal</h3>
           <div className="flex items-center gap-2">
             {/* Receipt Upload button - activates receipt mode */}
             <button
@@ -762,7 +762,7 @@ const RequestForm: React.FC = () => {
                 isKnowledgeMode ? "Add knowledge: e.g., 'Gift cards are available at website.com/giftcards for $25, $50, or $100'" :
                 isReceiptMode ? "Add notes about this receipt (optional)..." :
                 isTicketMode ? "Describe the issue for the support ticket..." :
-                "Describe your request (e.g., power outage, equipment frozen, booking cancellation...)"
+                "Describe your request (e.g., warranty claim process, material specs, safety protocols, vendor contacts...)"
               }
               disabled={isSubmitting || demoMode}
               rows={2}
@@ -775,7 +775,7 @@ const RequestForm: React.FC = () => {
           {/* Tone Conversion Input - HIDDEN FOR NOW */}
           {/* <div className="form-group">
             <label className="form-label" htmlFor="toneInput">
-              Clubhouse Tone Converter
+              Cedarwood Tone Converter
             </label>
             <div className="flex gap-2">
               <input
@@ -783,7 +783,7 @@ const RequestForm: React.FC = () => {
                 {...register('toneConversion')}
                 type="text"
                 className="form-input flex-1"
-                placeholder="Type anything and convert it to Clubhouse's friendly tone..."
+                placeholder="Type anything and convert it to Cedarwood's professional tone..."
                 disabled={isConvertingTone}
               />
               <button
@@ -1348,7 +1348,7 @@ const RequestForm: React.FC = () => {
                 isKnowledgeMode ? 'Add Knowledge' :
                 isReceiptMode ? 'Scan Receipt' :
                 isTicketMode ? 'Create' :
-                (smartAssistEnabled ? 'Process' : 'Send to Clubhouse Team')
+                (smartAssistEnabled ? 'Process' : 'Send to Cedarwood Team')
               )}
             </button>
             <button

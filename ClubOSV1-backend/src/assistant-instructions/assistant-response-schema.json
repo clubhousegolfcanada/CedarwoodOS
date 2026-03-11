@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Assistant Response Schema",
-  "description": "Structured response format for ClubOS assistants",
+  "description": "Structured response format for CedarwoodOS assistants",
   "type": "object",
   "required": ["response", "category", "actions"],
   "properties": {
