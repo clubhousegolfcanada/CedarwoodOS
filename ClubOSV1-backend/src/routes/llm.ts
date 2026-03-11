@@ -168,6 +168,14 @@ router.post('/request',
         req.body.requestDescription?.toLowerCase().includes('reconcile')
       );
 
+      // Check if this is a media upload (has attachments)
+      const hasMediaAttachments = req.body.mediaAttachments && req.body.mediaAttachments.length > 0;
+
+      // Check if this is a media recall query
+      const descLower = req.body.requestDescription?.toLowerCase() || '';
+      const isMediaQuery = !hasMediaAttachments && !isReceiptOCR && !isReceiptQuery &&
+        /\b(photo|picture|image|show me|find the|uploaded|attachment|file from|pdf from|media)\b/i.test(descLower);
+
       // Debug logging
       logger.info('Request processing debug', {
         fullBody: req.body,
@@ -175,10 +183,127 @@ router.post('/request',
         smartAssistType: typeof req.body.smartAssistEnabled,
         isCustomerKiosk,
         isReceiptQuery,
+        hasMediaAttachments,
+        isMediaQuery,
         willSendToSlack: isCustomerKiosk || !req.body.smartAssistEnabled,
         requestDescription: req.body.requestDescription?.substring(0, 50)
       });
-      
+
+      // ─── Handle media upload ────────────────────────────────────────────
+      if (hasMediaAttachments) {
+        try {
+          const { mediaAssetService } = await import('../services/mediaAssetService');
+          const mediaResults = [];
+
+          for (const attachment of req.body.mediaAttachments) {
+            // Decode base64 — handle both "data:image/jpeg;base64,..." and raw base64
+            const base64Data = attachment.data.includes(',')
+              ? attachment.data.split(',')[1]
+              : attachment.data;
+            const buffer = Buffer.from(base64Data, 'base64');
+
+            const asset = await mediaAssetService.createMediaAsset(buffer, {
+              userDescription: req.body.requestDescription || null,
+              fileName: attachment.fileName || attachment.name || 'upload',
+              mimeType: attachment.mimeType || attachment.type || 'image/jpeg',
+              fileSize: buffer.length,
+              userId: (req as any).user?.id || 'unknown',
+              userName: (req as any).user?.name || (req as any).user?.email || 'Operator',
+              location: req.body.location || null,
+            });
+            mediaResults.push(asset);
+          }
+
+          logger.info(`[LLM] Media upload: ${mediaResults.length} file(s) by ${(req as any).user?.email}`);
+
+          return res.json({
+            success: true,
+            data: {
+              requestId,
+              status: 'completed',
+              botRoute: 'Media Upload',
+              llmResponse: {
+                route: 'Media Upload',
+                response: `${mediaResults.length} file(s) uploaded successfully. AI analysis in progress...`,
+                confidence: 1.0,
+                mediaUploadConfirmation: {
+                  count: mediaResults.length,
+                  thumbnails: mediaResults.map((r: any) => r.thumbnailData).filter(Boolean),
+                  ids: mediaResults.map((r: any) => r.id),
+                },
+              },
+              processingTime: Date.now() - startTime,
+            },
+          });
+        } catch (mediaError: any) {
+          logger.error('[LLM] Media upload failed:', mediaError);
+          return res.status(500).json({
+            error: 'Media upload failed',
+            message: mediaError.message,
+          });
+        }
+      }
+
+      // ─── Handle media recall query ──────────────────────────────────────
+      if (isMediaQuery && req.body.smartAssistEnabled) {
+        try {
+          const { mediaSearchService } = await import('../services/mediaSearchService');
+          const mediaResults = await mediaSearchService.searchMedia(
+            req.body.requestDescription,
+            { location: req.body.location, limit: 10 }
+          );
+
+          if (mediaResults.length > 0) {
+            // Build context summary for the LLM
+            const mediaContext = mediaResults.slice(0, 3).map(r =>
+              `[Media: ${r.ai_description || r.user_description || r.file_name}, ` +
+              `uploaded by ${r.uploader_name} on ${new Date(r.created_at).toLocaleDateString()}, ` +
+              `location: ${r.location || 'unknown'}]`
+            ).join('\n');
+
+            const responseText = mediaResults.some(r => r.isPartialMatch)
+              ? `I found some related content in the knowledge base:\n\n${mediaContext}`
+              : `Here's what I found:\n\n${mediaContext}`;
+
+            logger.info(`[LLM] Media recall: ${mediaResults.length} results for "${req.body.requestDescription?.substring(0, 50)}"`);
+
+            return res.json({
+              success: true,
+              data: {
+                requestId,
+                status: 'completed',
+                botRoute: 'Media Search',
+                llmResponse: {
+                  route: 'Media Search',
+                  response: responseText,
+                  confidence: mediaResults[0]?.similarity || 0.7,
+                  dataSource: 'MEDIA_KNOWLEDGE_ENGINE',
+                  mediaResults: mediaResults.map(r => ({
+                    id: r.id,
+                    thumbnail_data: r.thumbnail_data,
+                    file_name: r.file_name,
+                    mime_type: r.mime_type,
+                    user_description: r.user_description,
+                    ai_description: r.ai_description,
+                    category: r.category,
+                    location: r.location,
+                    uploader_name: r.uploader_name,
+                    created_at: r.created_at,
+                    similarity: r.similarity,
+                    isPartialMatch: r.isPartialMatch,
+                  })),
+                },
+                processingTime: Date.now() - startTime,
+              },
+            });
+          }
+          // If no media results, fall through to normal LLM processing
+        } catch (mediaError: any) {
+          logger.error('[LLM] Media search failed, falling through to LLM:', mediaError);
+          // Fall through to normal processing
+        }
+      }
+
       // Handle receipt OCR request
       if (isReceiptOCR) {
         const { processReceiptWithOCR, formatOCRForDisplay } = await import('../services/ocr/receiptOCR');

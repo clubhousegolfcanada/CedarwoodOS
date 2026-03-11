@@ -235,6 +235,7 @@ app.get('/api/version', (req, res) => {
 app.use('/api', csrfRoutes);
 app.use('/api/tickets', ticketsRoutes);
 app.use('/api/receipts', require('./routes/receipts-simple').default);
+app.use('/api/media', require('./routes/media-assets').default);
 app.use('/api/tasks', tasksRoutes);
 app.use('/api/feedback', feedbackRoutes);
 app.use('/api/llm', llmRateLimiter, trackUsage, llmRoutes);

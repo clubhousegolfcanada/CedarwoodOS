@@ -118,6 +118,38 @@ export class KnowledgeSearchService {
         results.push(...assistantResults);
       }
 
+      // 5. Search media_assets (CedarwoodOS Media Knowledge Engine)
+      if (results.length < limit) {
+        try {
+          const { mediaSearchService } = await import('./mediaSearchService');
+          const mediaResults = await mediaSearchService.searchMedia(query, { limit: Math.min(3, limit - results.length) });
+          if (mediaResults.length > 0) {
+            results.push(...mediaResults.map(m => ({
+              key: `media.${m.category || 'other'}.${m.id}`,
+              value: {
+                content: m.ai_description || m.user_description || m.file_name,
+                description: m.ai_description,
+                userDescription: m.user_description,
+                fileName: m.file_name,
+                location: m.location,
+                uploaderName: m.uploader_name,
+                createdAt: m.created_at,
+                thumbnailData: m.thumbnail_data,
+                isMedia: true,
+                isPartialMatch: m.isPartialMatch,
+              },
+              confidence: m.isPartialMatch ? 0.3 : 0.8,
+              relevance: m.similarity || 0.5,
+              source: 'media_assets'
+            })));
+            logger.info(`[KnowledgeSearch] Found ${mediaResults.length} media results for: "${query.substring(0, 50)}"`);
+          }
+        } catch (mediaError) {
+          // Silent fail — media search is supplementary to core knowledge
+          logger.debug('[KnowledgeSearch] Media search unavailable:', mediaError);
+        }
+      }
+
       // Sort by relevance and confidence
       results.sort((a, b) => {
         const scoreA = a.relevance * a.confidence;

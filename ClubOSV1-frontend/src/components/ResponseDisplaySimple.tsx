@@ -4,6 +4,8 @@ import logger from '@/services/logger';
 import { http } from '@/api/http';
 import toast from 'react-hot-toast';
 import { sanitizeResponseHtml } from '@/utils/sanitizer';
+import MediaGallery from './MediaGallery';
+import type { MediaSearchResult } from '@/types/request';
 
 interface Props {
   response: any;
@@ -531,6 +533,26 @@ export const ResponseDisplaySimple: React.FC<Props> = ({ response, route, photos
   const receiptSummary = response?.summary;
   const receiptActions = response?.actions;
 
+  // Check if this is a media response (CedarwoodOS Media Knowledge Engine)
+  const hasMediaResults = response?.mediaResults && Array.isArray(response.mediaResults) && response.mediaResults.length > 0;
+  const mediaResults: MediaSearchResult[] = hasMediaResults
+    ? response.mediaResults.map((r: any) => ({
+        id: r.id,
+        thumbnailData: r.thumbnail_data || r.thumbnailData,
+        fileName: r.file_name || r.fileName,
+        mimeType: r.mime_type || r.mimeType,
+        userDescription: r.user_description || r.userDescription,
+        aiDescription: r.ai_description || r.aiDescription,
+        category: r.category,
+        location: r.location,
+        uploaderName: r.uploader_name || r.uploaderName,
+        createdAt: r.created_at || r.createdAt,
+        similarity: r.similarity || 0,
+        isPartialMatch: r.isPartialMatch || false,
+      }))
+    : [];
+  const mediaUploadConfirmation = response?.mediaUploadConfirmation;
+
   // Handle save correction
   const handleSaveCorrection = async () => {
     setSaving(true);
@@ -660,6 +682,37 @@ export const ResponseDisplaySimple: React.FC<Props> = ({ response, route, photos
                   summary={receiptSummary}
                   actions={receiptActions}
                 />
+              </div>
+            )}
+
+            {/* Show media results if available (CedarwoodOS Media Knowledge Engine) */}
+            {hasMediaResults && (
+              <div className="mt-4">
+                <MediaGallery
+                  results={mediaResults}
+                  context={displayText || undefined}
+                />
+              </div>
+            )}
+
+            {/* Show media upload confirmation */}
+            {mediaUploadConfirmation && (
+              <div className="mt-3 flex gap-2 flex-wrap">
+                {mediaUploadConfirmation.thumbnails?.map((thumb: string, i: number) => (
+                  <div key={i} className="relative">
+                    <img
+                      src={thumb}
+                      alt={`Uploaded ${i + 1}`}
+                      className="w-16 h-16 object-cover rounded-lg border border-green-500/30"
+                    />
+                    <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+                      <Check className="w-2.5 h-2.5 text-white" />
+                    </div>
+                  </div>
+                ))}
+                <p className="text-xs text-[var(--text-muted)] self-end">
+                  AI analyzing in background...
+                </p>
               </div>
             )}
           </>

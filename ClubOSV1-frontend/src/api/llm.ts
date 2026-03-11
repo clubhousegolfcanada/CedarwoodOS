@@ -8,13 +8,13 @@ import logger from '@/services/logger';
  */
 export const submitRequest = async (request: UserRequest): Promise<ApiResponse> => {
   const clientStartTime = Date.now(); // Track when request starts on client
-  
+
   try {
     // Always use the LLM endpoint - it handles both smart assist and Slack routing
     const endpoint = 'llm/request';
-    
+
     // Build payload - user info comes from JWT token, not request body
-    const payload = {
+    const payload: any = {
       requestDescription: request.requestDescription,
       location: request.location,
       routePreference: request.routePreference || "Auto",
@@ -22,6 +22,11 @@ export const submitRequest = async (request: UserRequest): Promise<ApiResponse> 
       clientStartTime // Include client start time
       // User authentication is handled via JWT token in headers
     };
+
+    // Include media attachments if present (CedarwoodOS Media Knowledge Engine)
+    if (request.mediaAttachments && request.mediaAttachments.length > 0) {
+      payload.mediaAttachments = request.mediaAttachments;
+    }
     
     // Submit request using the http client (with CSRF protection now!)
     const response = await http.post<ApiResponse>(endpoint, payload);

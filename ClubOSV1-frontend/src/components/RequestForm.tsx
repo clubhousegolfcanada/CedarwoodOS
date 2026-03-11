@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { useRequestSubmission, useNotifications, useDemoMode } from '@/state/hooks';
 import { useSettingsState, useAuthState } from '@/state/useStore';
 import { canAccessRoute, getRestrictedTooltip } from '@/utils/roleUtils';
-import type { UserRequest, RequestRoute } from '@/types/request';
+import type { UserRequest, RequestRoute, MediaAttachment } from '@/types/request';
 import { Lock, ThumbsUp, ThumbsDown, ChevronDown, ChevronRight, Send, Clock, MessageCircle, Camera, X, Receipt } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { http } from '@/api/http';
@@ -12,6 +12,7 @@ import { ResponseDisplaySimple } from './ResponseDisplaySimple';
 import { tokenManager } from '@/utils/tokenManager';
 import logger from '@/services/logger';
 import PrioritySlider from './ui/PrioritySlider';
+import MediaUploadZone from './MediaUploadZone';
 
 // Add keyframes for button animation
 const shimmerKeyframes = `
@@ -71,6 +72,7 @@ const RequestForm: React.FC = () => {
   const [sendingReply, setSendingReply] = useState(false);
   const [conversationExpanded, setConversationExpanded] = useState(true);
   const [photoAttachments, setPhotoAttachments] = useState<string[]>([]);
+  const [mediaAttachments, setMediaAttachments] = useState<MediaAttachment[]>([]);
   const [isPersonalCard, setIsPersonalCard] = useState(false);
 
   const { preferences } = useSettingsState();
@@ -484,6 +486,8 @@ const RequestForm: React.FC = () => {
       location: data.location || undefined,
       routePreference: smartAssistEnabled ? routePreference : undefined,
       smartAssistEnabled,
+      // CedarwoodOS Media Knowledge Engine — attach media files
+      ...(mediaAttachments.length > 0 && { mediaAttachments }),
     } as any;
 
     if (isMounted) {
@@ -627,6 +631,7 @@ const RequestForm: React.FC = () => {
     setShowLocationSelector(false); // Close Location selector if open
     setSmartAssistEnabled(true); // Enable Smart Assist by default
     setPhotoAttachments([]); // Clear photo attachments
+    setMediaAttachments([]); // Clear media attachments (CedarwoodOS Media Knowledge Engine)
     setShowResponse(false);
     resetRequestState();
     setConvertedTone('');
@@ -774,6 +779,18 @@ const RequestForm: React.FC = () => {
               <p className="error-message">{errors.requestDescription.message}</p>
             )}
           </div>
+
+          {/* CedarwoodOS Media Upload Zone — shown in default PROCESS mode */}
+          {!isTicketMode && !isKnowledgeMode && !isReceiptMode && smartAssistEnabled && (
+            <div className="mb-3 -mt-2">
+              <MediaUploadZone
+                attachments={mediaAttachments}
+                onAttachmentsChange={setMediaAttachments}
+                maxAttachments={5}
+                disabled={isProcessing || isSubmitting}
+              />
+            </div>
+          )}
 
           {/* Tone Conversion Input - HIDDEN FOR NOW */}
           {/* <div className="form-group">
@@ -1569,7 +1586,10 @@ const RequestForm: React.FC = () => {
                     botRoute: lastResponse.botRoute,
                     processingTime: lastResponse.processingTime,
                     confidence: lastResponse.llmResponse?.confidence,
-                    originalQuery: lastRequestData?.requestDescription || requestDescription
+                    originalQuery: lastRequestData?.requestDescription || requestDescription,
+                    // CedarwoodOS Media Knowledge Engine results
+                    mediaResults: lastResponse.llmResponse?.mediaResults || lastResponse.mediaResults,
+                    mediaUploadConfirmation: lastResponse.llmResponse?.mediaUploadConfirmation || lastResponse.mediaUploadConfirmation,
                   }}
                   route={lastResponse.botRoute}
                   photos={photoAttachments}
