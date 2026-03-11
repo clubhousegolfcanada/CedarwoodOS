@@ -46,14 +46,8 @@ export function useAppVisibility() {
                 const parsedUser = JSON.parse(storedUser);
                 setUser({ ...parsedUser, token: storedToken });
                 
-                // Ensure correct view mode and navigation for customers
-                if (parsedUser.role === 'customer') {
-                  setViewMode('customer');
-                  // If on a non-customer page, redirect to customer dashboard
-                  if (!router.pathname.startsWith('/customer') && router.pathname !== '/') {
-                    router.push('/customer');
-                  }
-                }
+                // Ensure correct view mode
+                setViewMode('operator');
               } catch (error) {
                 logger.error('Failed to restore auth on visibility change:', error);
               }

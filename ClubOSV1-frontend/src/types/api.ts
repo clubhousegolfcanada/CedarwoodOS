@@ -31,7 +31,7 @@ export interface User {
   id: string;
   email: string;
   name: string;
-  role: 'admin' | 'operator' | 'customer';
+  role: 'admin' | 'operator' | 'support' | 'kiosk' | 'contractor';
   phone?: string;
   avatar?: string;
   createdAt?: string;

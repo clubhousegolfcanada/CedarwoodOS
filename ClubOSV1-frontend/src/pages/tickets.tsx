@@ -27,14 +27,9 @@ export default function TicketCenter() {
     return () => document.removeEventListener('click', handleClickOutside);
   }, [showLocationDropdown]);
 
-  // SECURITY: Block customer role from accessing tickets
+  // SECURITY: Only allow operator roles to access tickets
   useEffect(() => {
     if (user) {
-      if (user.role === 'customer') {
-        router.push('/customer/');
-        return;
-      }
-      // Only allow operator roles
       if (!['admin', 'operator', 'support'].includes(user.role)) {
         router.push('/login');
         return;

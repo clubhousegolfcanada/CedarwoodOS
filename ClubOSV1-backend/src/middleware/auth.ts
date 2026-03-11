@@ -42,9 +42,6 @@ export const generateToken = (payload: Omit<JWTPayload, 'iat' | 'exp'>, remember
       case 'admin':
         expiresIn = '30d';  // Operators/admins get month-long tokens
         break;
-      case 'customer':
-        expiresIn = '90d';  // Customers get 3 months
-        break;
       case 'contractor':
         expiresIn = '7d';   // Contractors get weekly tokens
         break;
@@ -60,9 +57,6 @@ export const generateToken = (payload: Omit<JWTPayload, 'iat' | 'exp'>, remember
       case 'operator':
       case 'admin':
         expiresIn = '7d';   // Full week for operators even without Remember Me
-        break;
-      case 'customer':
-        expiresIn = '24h';  // 24 hours for customers
         break;
       case 'kiosk':
         expiresIn = '7d';   // Kiosks get a week
@@ -179,9 +173,6 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
     if (decoded.role === 'operator' || decoded.role === 'admin') {
       // Operators/admins: Refresh when 70% of lifetime is consumed
       shouldRefresh = tokenAgePercent > 70;
-    } else if (decoded.role === 'customer') {
-      // Customers: Refresh when 50% of lifetime is consumed
-      shouldRefresh = tokenAgePercent > 50;
     } else {
       // Others: Refresh when 80% consumed or less than 1 hour remains
       shouldRefresh = tokenAgePercent > 80 || timeUntilExpiry < 3600;
@@ -219,7 +210,7 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
     }
 
     // Validate role exists - include customer and contractor roles
-    if (!decoded.role || !['admin', 'operator', 'support', 'kiosk', 'customer', 'contractor'].includes(decoded.role)) {
+    if (!decoded.role || !['admin', 'operator', 'support', 'kiosk', 'contractor'].includes(decoded.role)) {
       return res.status(401).json({
         error: 'Unauthorized',
         message: 'Invalid token: missing or invalid role'

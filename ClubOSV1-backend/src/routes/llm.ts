@@ -474,7 +474,7 @@ router.post('/request',
             email: fullUser.email,
             phone: fullUser.phone,
             role: fullUser.role
-          } : isCustomerKiosk ? { name: 'Customer Kiosk', role: 'customer' } : undefined
+          } : isCustomerKiosk ? { name: 'Kiosk', role: 'kiosk' } : undefined
         };
         
         // Log the request to database asynchronously (don't wait)

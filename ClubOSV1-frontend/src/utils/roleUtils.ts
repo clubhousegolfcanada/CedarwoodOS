@@ -23,7 +23,6 @@ export const hasMinimumRole = (userRole: UserRole | null | undefined, minimumRol
   
   const roleHierarchy: Record<UserRole, number> = {
     'kiosk': 0,
-    'customer': 0,
     'contractor': 0,
     'support': 1,
     'operator': 2,
@@ -73,7 +72,6 @@ export const getRoleDisplayName = (role: UserRole): string => {
     'operator': 'Operator',
     'support': 'Support',
     'kiosk': 'Kiosk',
-    'customer': 'Customer',
     'contractor': 'Contractor'
   };
   
@@ -89,7 +87,6 @@ export const getRoleColor = (role: UserRole): string => {
     'operator': 'bg-blue-500',
     'support': 'bg-green-500',
     'kiosk': 'bg-purple-500',
-    'customer': 'bg-indigo-500',
     'contractor': 'bg-yellow-500'
   };
   
@@ -106,7 +103,6 @@ export const getRoleBadgeStyles = (role: UserRole): string => {
     'operator': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
     'support': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
     'kiosk': 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
-    'customer': 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200',
     'contractor': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
   };
   

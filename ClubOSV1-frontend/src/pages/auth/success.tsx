@@ -51,20 +51,14 @@ const AuthSuccessPage = () => {
         // Verify the logged-in user matches what we expected
         logger.info(`OAuth login successful for: ${user.email}`);
 
-        // Set view mode based on user role
-        if (user.role === 'customer') {
-          setViewMode('customer');
-        } else {
-          setViewMode('operator');
-        }
+        // Set view mode (always operator in CedarwoodOS)
+        setViewMode('operator');
 
         // Show success message
         toast.success(`Welcome, ${user.name}!`);
 
         // Navigate based on user role
-        if (user.role === 'customer') {
-          router.push('/customer/');
-        } else if (user.role === 'contractor') {
+        if (user.role === 'contractor') {
           router.push('/checklists');
         } else {
           router.push('/');

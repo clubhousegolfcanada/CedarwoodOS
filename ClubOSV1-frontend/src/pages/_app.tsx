@@ -135,8 +135,6 @@ function AppContent({ Component, pageProps }: AppContentProps) {
         // Restore view mode
         if (savedViewMode) {
           setViewMode(savedViewMode as 'operator' | 'customer');
-        } else if (user.role === 'customer') {
-          setViewMode('customer');
         } else {
           setViewMode('operator');
         }

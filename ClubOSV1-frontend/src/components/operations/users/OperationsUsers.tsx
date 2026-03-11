@@ -11,7 +11,7 @@ type User = {
   id: string;
   email: string;
   name: string;
-  role: 'admin' | 'operator' | 'support' | 'kiosk' | 'customer' | 'contractor';
+  role: 'admin' | 'operator' | 'support' | 'kiosk' | 'contractor';
   phone?: string;
   status?: 'active' | 'pending_approval' | 'suspended' | 'rejected';
   createdAt: string;
@@ -43,7 +43,7 @@ export const OperationsUsers: React.FC = () => {
     email: '',
     name: '',
     password: '',
-    role: 'customer' as 'admin' | 'operator' | 'support' | 'kiosk' | 'customer' | 'contractor',
+    role: 'operator' as 'admin' | 'operator' | 'support' | 'kiosk' | 'contractor',
     phone: '',
     locations: [] as string[],
     permissions: {
@@ -240,7 +240,7 @@ export const OperationsUsers: React.FC = () => {
         email: '',
         name: '',
         password: '',
-        role: 'customer',
+        role: 'operator',
         phone: '',
         locations: [],
         permissions: {
@@ -373,8 +373,8 @@ export const OperationsUsers: React.FC = () => {
   };
 
   // Separate operators and customers
-  const operators = users.filter(u => u.role !== 'customer');
-  const customers = users.filter(u => u.role === 'customer');
+  const operators = users;
+  const customers: User[] = []; // Customer role removed from CedarwoodOS
   
   // Sort customers: pending first, then active
   const sortedCustomers = [...customers].sort((a, b) => {
@@ -500,7 +500,7 @@ export const OperationsUsers: React.FC = () => {
                           <option value="operator">Operator</option>
                           <option value="support">Support</option>
                           <option value="kiosk">Kiosk</option>
-                          <option value="customer">Customer</option>
+
                           <option value="contractor">Contractor</option>
                         </select>
                       ) : (
@@ -508,7 +508,6 @@ export const OperationsUsers: React.FC = () => {
                           user.role === 'admin' ? 'bg-purple-100 text-purple-700' :
                           user.role === 'operator' ? 'bg-blue-100 text-blue-700' :
                           user.role === 'support' ? 'bg-green-100 text-green-700' :
-                          user.role === 'customer' ? 'bg-orange-100 text-orange-700' :
                           user.role === 'contractor' ? 'bg-yellow-100 text-yellow-700' :
                           'bg-gray-100 text-gray-700'
                         }`}>
@@ -604,18 +603,7 @@ export const OperationsUsers: React.FC = () => {
                 </span>
               )}
             </div>
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={() => {
-                  setNewUser({ ...newUser, role: 'customer' });
-                  setShowAddUser(true);
-                }}
-                className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors flex items-center space-x-2"
-              >
-                <Plus className="h-4 w-4" />
-                <span>Add Customer</span>
-              </button>
-            </div>
+            {/* Add Customer button removed - no customer role in CedarwoodOS */}
           </div>
         </div>
 
@@ -910,7 +898,6 @@ export const OperationsUsers: React.FC = () => {
                   <option value="operator">Operator</option>
                   <option value="support">Support</option>
                   <option value="kiosk">Kiosk</option>
-                  <option value="customer">Customer</option>
                   <option value="contractor">Contractor</option>
                 </select>
               </div>
@@ -987,7 +974,7 @@ export const OperationsUsers: React.FC = () => {
                     email: '',
                     name: '',
                     password: '',
-                    role: 'customer',
+                    role: 'operator',
                     phone: '',
                     locations: [],
                     permissions: {

@@ -30,8 +30,6 @@ export const rateLimiter = rateLimit({
     if (req.path === '/health') return true;
     // Skip for authenticated admin users
     if (req.user?.role === 'admin') return true;
-    // Skip for authenticated customers - they have their own user-based limits
-    if (req.user?.role === 'customer') return true;
     // Skip for GET requests to most endpoints (reading data shouldn't be heavily limited)
     if (req.method === 'GET' && !req.path.includes('/llm') && !req.path.includes('/openphone')) return true;
     // Skip in development unless explicitly testing

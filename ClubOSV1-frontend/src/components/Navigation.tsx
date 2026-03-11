@@ -11,7 +11,7 @@ import { ChevronDown, ChevronRight, User, Settings, LogOut, MessageCircle, Calen
 import packageJson from '../../package.json';
 import { tokenManager } from '@/utils/tokenManager';
 
-type UserRole = 'admin' | 'operator' | 'support' | 'kiosk' | 'customer' | 'contractor';
+type UserRole = 'admin' | 'operator' | 'support' | 'kiosk' | 'contractor';
 
 interface NavigationProps {
   unreadMessages?: number;
@@ -115,8 +115,8 @@ const Navigation: React.FC<NavigationProps> = ({ unreadMessages = 0 }) => {
         { href: '/operations', label: 'Operations', roles: ['admin', 'operator'] as UserRole[] },
       ].filter(item => hasAnyRole(user?.role, item.roles));
 
-  // For non-customer mobile users (operators), render bottom navigation
-  const shouldRenderBottomNav = isMobile && user?.role !== 'customer' && user?.role !== 'kiosk' && user?.role !== 'contractor';
+  // For mobile users (operators), render bottom navigation
+  const shouldRenderBottomNav = isMobile && user?.role !== 'kiosk' && user?.role !== 'contractor';
 
   // If mobile operator, render bottom navigation similar to customer nav
   if (shouldRenderBottomNav) {
@@ -272,13 +272,13 @@ const Navigation: React.FC<NavigationProps> = ({ unreadMessages = 0 }) => {
   // Default desktop and non-operator mobile rendering
   return (
     /* Navigation with improved spacing - v1.16.6 */
-    <nav className={`bg-[var(--bg-secondary)] border-b border-[var(--border-secondary)] ${user?.role !== 'customer' ? 'py-2' : ''} ${isEmbedded ? 'embedded-nav' : ''}`}>
+    <nav className={`bg-[var(--bg-secondary)] border-b border-[var(--border-secondary)] py-2 ${isEmbedded ? 'embedded-nav' : ''}`}>
       <div className={`${isEmbedded ? 'px-4' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'}`}>
         <div className="flex items-center justify-between h-12" style={{ maxHeight: '48px' }}>
           {/* Logo with tagline - Compressed */}
           <div className="flex items-center">
             <div className="flex items-center gap-2">
-              <Link href={user?.role === 'customer' ? '/customer' : '/'} className="logo text-lg font-semibold" aria-label="CedarwoodOS Home">
+              <Link href="/" className="logo text-lg font-semibold" aria-label="CedarwoodOS Home">
                 CedarwoodOS
               </Link>
               <span className="text-[10px] text-[var(--text-muted)] hidden md:block">

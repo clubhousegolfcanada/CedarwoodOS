@@ -14,7 +14,7 @@ export interface DbUser {
   email: string;
   password: string;
   name: string;
-  role: 'admin' | 'operator' | 'support' | 'kiosk' | 'customer';
+  role: 'admin' | 'operator' | 'support' | 'kiosk' | 'contractor';
   phone?: string;
   created_at: Date;
   updated_at: Date;
@@ -193,7 +193,7 @@ class DatabaseService {
     email: string;
     password: string;
     name: string;
-    role: 'admin' | 'operator' | 'support' | 'kiosk' | 'customer';
+    role: 'admin' | 'operator' | 'support' | 'kiosk' | 'contractor';
     phone?: string;
     status?: 'active' | 'pending_approval' | 'suspended' | 'rejected';
   }): Promise<DbUser> {

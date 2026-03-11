@@ -17,7 +17,7 @@ export const validateCreateUser: ValidationChain[] = [
     .trim(),
   body('role')
     .optional()
-    .isIn(['admin', 'operator', 'support', 'kiosk', 'customer'])
+    .isIn(['admin', 'operator', 'support', 'kiosk', 'contractor'])
     .withMessage('Invalid role'),
   body('phone')
     .optional()
@@ -44,7 +44,7 @@ export const validateUpdateUser: ValidationChain[] = [
     .trim(),
   body('role')
     .optional()
-    .isIn(['admin', 'operator', 'support', 'kiosk', 'customer'])
+    .isIn(['admin', 'operator', 'support', 'kiosk', 'contractor'])
     .withMessage('Invalid role'),
   body('phone')
     .optional()
@@ -102,7 +102,7 @@ export const validateSearchUsers: ValidationChain[] = [
     .trim(),
   query('role')
     .optional()
-    .isIn(['admin', 'operator', 'support', 'kiosk', 'customer'])
+    .isIn(['admin', 'operator', 'support', 'kiosk', 'contractor'])
     .withMessage('Invalid role'),
   query('status')
     .optional()
@@ -128,7 +128,7 @@ export const validatePagination: ValidationChain[] = [
     .withMessage('Limit must be between 1 and 100'),
   query('role')
     .optional()
-    .isIn(['admin', 'operator', 'support', 'kiosk', 'customer'])
+    .isIn(['admin', 'operator', 'support', 'kiosk', 'contractor'])
     .withMessage('Invalid role filter'),
   query('status')
     .optional()
@@ -154,7 +154,7 @@ export const validateBulkUpdate: ValidationChain[] = [
     .withMessage('Updates must be an object'),
   body('updates.role')
     .optional()
-    .isIn(['admin', 'operator', 'support', 'kiosk', 'customer'])
+    .isIn(['admin', 'operator', 'support', 'kiosk', 'contractor'])
     .withMessage('Invalid role'),
   body('updates.status')
     .optional()
@@ -185,7 +185,7 @@ export const validateExportUsers: ValidationChain[] = [
     .withMessage('Format must be json or csv'),
   query('role')
     .optional()
-    .isIn(['admin', 'operator', 'support', 'kiosk', 'customer'])
+    .isIn(['admin', 'operator', 'support', 'kiosk', 'contractor'])
     .withMessage('Invalid role filter'),
   query('status')
     .optional()

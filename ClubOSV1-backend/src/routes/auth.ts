@@ -11,190 +11,12 @@ import { authenticate, generateToken, verifyToken } from '../middleware/auth';
 import { roleGuard } from '../middleware/roleGuard';
 import { transformUser } from '../utils/transformers';
 import { passwordChangeLimiter } from '../middleware/passwordChangeLimiter';
-import { authRateLimiter, signupRateLimiters } from '../middleware/rateLimiter';
+import { authRateLimiter } from '../middleware/rateLimiter';
 import { contractorService } from '../services/contractorService';
 
 const router = Router();
 
-// Customer Registration endpoint (public)
-router.post('/signup',
-  ...signupRateLimiters, // Apply progressive rate limiting
-  validate([
-    body('email')
-      .trim()
-      .isEmail()
-      .withMessage('Valid email is required'),
-    body('password')
-      .isLength({ min: 8 })
-      .withMessage('Password must be at least 8 characters')
-      .matches(/[A-Z]/)
-      .withMessage('Password must contain at least one uppercase letter')
-      .matches(/[a-z]/)
-      .withMessage('Password must contain at least one lowercase letter')
-      .matches(/[0-9]/)
-      .withMessage('Password must contain at least one number')
-      .matches(/[!@#$%^&*(),.?":{}|<>]/)
-      .withMessage('Password must contain at least one special character'),
-    body('name')
-      .trim()
-      .notEmpty()
-      .withMessage('Name is required'),
-    body('phone')
-      .optional()
-      .trim(),
-    body('role')
-      .optional()
-      .isIn(['customer'])
-      .withMessage('Only customer registration is allowed through this endpoint')
-  ]),
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { email, password, name, phone, role = 'customer' } = req.body;
-      
-      // Only allow customer registration through this endpoint
-      if (role !== 'customer') {
-        throw new AppError('Only customer registration is allowed', 403, 'FORBIDDEN');
-      }
-      
-      logger.info('Customer registration attempt:', { email, name });
-      
-      // Check if user already exists
-      const existingUser = await db.findUserByEmail(email);
-      if (existingUser) {
-        throw new AppError('Email already registered', 409, 'EMAIL_EXISTS');
-      }
-      
-      // Check auto-approval setting
-      let autoApprove = true; // Default to auto-approve
-      try {
-        const settingResult = await db.query(
-          `SELECT value FROM system_settings WHERE key = 'customer_auto_approval'`
-        );
-        if (settingResult.rows.length > 0) {
-          autoApprove = settingResult.rows[0].value?.enabled !== false;
-        }
-      } catch (err) {
-        logger.warn('Could not fetch auto-approval setting, defaulting to auto-approve');
-      }
-      
-      // Create user (password will be hashed in createUser)
-      const userId = uuidv4();
-      const user = await db.createUser({
-        id: userId,
-        email: email.toLowerCase(),
-        password: password,
-        name,
-        phone,
-        role: 'customer',
-        status: autoApprove ? 'active' : 'pending_approval'
-      });
-
-      // Generate and save email verification token
-      try {
-        const { emailService } = await import('../services/emailService');
-        const verificationToken = emailService.generateVerificationToken();
-
-        // Save token to database (expires in 24 hours)
-        await db.query(
-          `INSERT INTO email_verification_tokens (user_id, token, expires_at)
-           VALUES ($1, $2, CURRENT_TIMESTAMP + INTERVAL '24 hours')`,
-          [userId, verificationToken]
-        );
-
-        // Send verification email
-        await emailService.sendVerificationEmail(email, name, verificationToken);
-        logger.info('Verification email sent to:', email);
-      } catch (emailError) {
-        logger.error('Failed to send verification email:', emailError);
-        // Don't fail signup if email sending fails
-      }
-      
-      // Create customer profile automatically
-      await db.query(
-        `INSERT INTO customer_profiles (user_id, display_name) 
-         VALUES ($1, $2) 
-         ON CONFLICT (user_id) DO NOTHING`,
-        [userId, name]
-      );
-      
-      // ClubCoin initialization removed (gamification system stripped)
-      
-      // Add user to current season leaderboard
-      try {
-        const seasonResult = await db.query(
-          `SELECT id FROM seasons WHERE status = 'active' LIMIT 1`
-        );
-        
-        if (seasonResult.rows.length > 0) {
-          const seasonId = seasonResult.rows[0].id;
-          // Initialize seasonal earnings tracking for leaderboard
-          await db.query(
-            `INSERT INTO seasonal_cc_earnings 
-             (user_id, season_id, cc_from_wins, cc_from_bonuses, cc_lost, cc_net, challenges_completed) 
-             VALUES ($1, $2, 0, 100, 0, 100, 0)
-             ON CONFLICT (user_id, season_id) DO NOTHING`,
-            [userId, seasonId]
-          );
-          logger.info('Added user to season leaderboard:', { userId, seasonId });
-        }
-      } catch (error) {
-        logger.error('Failed to add user to season leaderboard:', error);
-        // Don't fail signup if leaderboard initialization fails
-      }
-      
-      // Log successful registration
-      await db.createAuthLog({
-        user_id: userId,
-        action: 'register',
-        ip_address: req.ip,
-        user_agent: req.get('user-agent'),
-        success: true
-      });
-      
-      logger.info('Customer registered successfully:', { 
-        userId: user.id,
-        email: user.email,
-        status: autoApprove ? 'active' : 'pending_approval'
-      });
-      
-      if (autoApprove) {
-        // Generate token for auto-approved users
-        const sessionId = uuidv4();
-        const token = generateToken({
-          userId: user.id,
-          email: user.email,
-          role: user.role,
-          sessionId: sessionId
-        });
-        
-        // Transform user for response
-        const transformedUser = transformUser(user);
-        
-        res.status(201).json({
-          success: true,
-          message: 'Account created successfully!',
-          data: {
-            user: transformedUser,
-            token
-          }
-        });
-      } else {
-        // Pending approval response
-        res.status(201).json({
-          success: true,
-          message: 'Account created successfully. Your account is pending approval and you will be notified once approved.',
-          data: {
-            status: 'pending_approval'
-          }
-        });
-      }
-      
-    } catch (error) {
-      logger.error('Registration error:', error);
-      next(error);
-    }
-  }
-);
+// Customer signup endpoint removed (no customer role in CedarwoodOS)
 
 // Login endpoint
 router.post('/login',
@@ -424,7 +246,7 @@ router.post('/register',
       .notEmpty()
       .withMessage('Name is required'),
     body('role')
-      .isIn(['admin', 'operator', 'support', 'kiosk', 'customer'])
+      .isIn(['admin', 'operator', 'support', 'kiosk', 'contractor'])
       .withMessage('Invalid role'),
     body('phone')
       .optional({ nullable: true, checkFalsy: true })
@@ -435,13 +257,13 @@ router.post('/register',
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { email, password, name, role, phone } = req.body;
-      
+
       // Check if user already exists
       const existingUser = await db.findUserByEmail(email);
       if (existingUser) {
         throw new AppError('User with this email already exists', 409, 'USER_EXISTS');
       }
-      
+
       // Create new user
       const newUser = await db.createUser({
         email,
@@ -541,7 +363,7 @@ router.post('/users',
       .matches(/[!@#$%^&*(),.?":{}|<>]/)
       .withMessage('Password must contain at least one special character'),
     body('name').notEmpty().withMessage('Name is required'),
-    body('role').isIn(['admin', 'operator', 'support', 'kiosk', 'customer', 'contractor']).withMessage('Invalid role'),
+    body('role').isIn(['admin', 'operator', 'support', 'kiosk', 'contractor']).withMessage('Invalid role'),
     body('phone').optional(),
     body('locations').optional().isArray(),
     body('permissions').optional().isObject()
@@ -591,41 +413,8 @@ router.post('/users',
         }
       }
       
-      // If it's a customer, handle full customer setup
-      if (role === 'customer') {
-        // Create customer profile
-        await db.query(
-          `INSERT INTO customer_profiles (user_id, display_name) 
-           VALUES ($1, $2) 
-           ON CONFLICT (user_id) DO NOTHING`,
-          [userId, name]
-        );
-        
-        // ClubCoin initialization removed (gamification system stripped)
-        
-        // Add user to current season leaderboard
-        try {
-          const seasonResult = await db.query(
-            `SELECT id FROM seasons WHERE status = 'active' LIMIT 1`
-          );
-          
-          if (seasonResult.rows.length > 0) {
-            const seasonId = seasonResult.rows[0].id;
-            await db.query(
-              `INSERT INTO seasonal_cc_earnings 
-               (user_id, season_id, cc_from_wins, cc_from_bonuses, cc_lost, cc_net, challenges_completed) 
-               VALUES ($1, $2, 0, 100, 0, 100, 0)
-               ON CONFLICT (user_id, season_id) DO NOTHING`,
-              [userId, seasonId]
-            );
-            logger.info('Added customer to season leaderboard:', { userId, seasonId });
-          }
-        } catch (error) {
-          logger.error('Failed to add customer to season leaderboard:', error);
-          // Don't fail user creation if leaderboard initialization fails
-        }
-      }
-      
+      // Customer profile/leaderboard setup removed (no customer role in CedarwoodOS)
+
       logger.info('User created', {
         userId,
         email,
@@ -681,14 +470,12 @@ router.put('/profile',
     body('name').optional().isString().trim(),
     body('phone').optional().isMobilePhone('any'),
     body('location').optional().isString().trim(),
-    body('homeGolfCourse').optional().isString().trim(),
-    body('bio').optional().isString().trim(),
-    body('handicap').optional().isFloat({ min: 0, max: 54 })
+    body('bio').optional().isString().trim()
   ]),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = req.user!.id;
-      const { name, phone, location, homeGolfCourse, bio, handicap } = req.body;
+      const { name, phone, location, bio } = req.body;
       
       // Update user basic info (use 'users' table, not "Users")
       const userUpdate = await db.query(
@@ -701,21 +488,7 @@ router.put('/profile',
         [name, phone, userId]
       );
       
-      // Update or create customer profile with additional fields
-      // Note: home_golf_course column doesn't exist in production yet, so we skip it
-      if (location !== undefined || bio !== undefined || handicap !== undefined) {
-        await db.query(
-          `INSERT INTO customer_profiles (user_id, home_location, bio, handicap)
-           VALUES ($1, $2, $3, $4)
-           ON CONFLICT (user_id) 
-           DO UPDATE SET 
-             home_location = COALESCE($2, customer_profiles.home_location),
-             bio = COALESCE($3, customer_profiles.bio),
-             handicap = COALESCE($4, customer_profiles.handicap),
-             updated_at = CURRENT_TIMESTAMP`,
-          [userId, location, bio, handicap]
-        );
-      }
+      // Customer profile update removed (no customer role in CedarwoodOS)
       
       res.json({
         success: true,
@@ -903,7 +676,7 @@ router.put('/users/:userId',
       .withMessage('Valid email is required'),
     body('role')
       .optional()
-      .isIn(['admin', 'operator', 'support', 'kiosk', 'customer'])
+      .isIn(['admin', 'operator', 'support', 'kiosk', 'contractor'])
       .withMessage('Invalid role')
   ]),
   async (req: Request, res: Response, next: NextFunction) => {
@@ -1160,7 +933,7 @@ router.post('/resend-verification',
 
       // Find user
       const userResult = await db.query(
-        `SELECT id, name, email_verified FROM users WHERE email = $1 AND role = 'customer'`,
+        `SELECT id, name, email_verified FROM users WHERE email = $1`,
         [email.toLowerCase()]
       );
 

@@ -6,7 +6,7 @@ import { http } from '@/api/http';
 
 interface GoogleSignInButtonProps {
   rememberMe: boolean;
-  loginMode: 'operator' | 'customer';
+  loginMode: 'operator';
   className?: string;
   variant?: 'primary' | 'secondary';
 }
@@ -19,7 +19,6 @@ const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
 }) => {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
-  // Removed iframe detection - was causing false positives and hiding login button
 
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
@@ -28,7 +27,7 @@ const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
       // Get Google OAuth URL from backend with user type
       const params = new URLSearchParams({
         remember_me: String(rememberMe),
-        user_type: loginMode === 'customer' ? 'customer' : 'operator'
+        user_type: 'operator'
       });
 
       // Use http client which has the correct backend URL configured
@@ -51,7 +50,6 @@ const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
   // Style based on variant
   const isPrimary = variant === 'primary';
 
-  // Show for both operator and customer modes
   return (
     <>
       {!isPrimary && (
@@ -101,21 +99,12 @@ const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
             fill="#EA4335"
           />
         </svg>
-        {isLoading ? 'Signing in...' :
-          loginMode === 'customer' ? 'Continue with Google' : 'Sign in with Google'}
+        {isLoading ? 'Signing in...' : 'Sign in with Google'}
       </button>
 
-      {/* Info text based on mode */}
-      {loginMode === 'operator' && (
-        <p className="text-xs text-center text-[var(--text-muted)] mt-2">
-          For Cedarwood employees only (@cedarwoodcontracting.com)
-        </p>
-      )}
-      {loginMode === 'customer' && (
-        <p className="text-xs text-center text-[var(--text-muted)] mt-2">
-          Sign up or sign in instantly with any Google account
-        </p>
-      )}
+      <p className="text-xs text-center text-[var(--text-muted)] mt-2">
+        For Cedarwood employees only (@cedarwoodcontracting.com)
+      </p>
     </>
   );
 };

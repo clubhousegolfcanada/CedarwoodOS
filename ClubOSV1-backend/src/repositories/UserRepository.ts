@@ -7,7 +7,7 @@ export interface User {
   email: string;
   password?: string;
   name: string;
-  role: 'admin' | 'operator' | 'support' | 'kiosk' | 'customer';
+  role: 'admin' | 'operator' | 'support' | 'kiosk' | 'contractor';
   phone?: string;
   created_at?: Date;
   updated_at?: Date;
@@ -127,7 +127,7 @@ export class UserRepository extends BaseRepository {
       email: userData.email?.toLowerCase(),
       password: hashedPassword,
       name: userData.name,
-      role: userData.role || 'customer',
+      role: userData.role || 'support',
       phone: userData.phone,
       is_active: userData.is_active !== undefined ? userData.is_active : true,
       status: userData.status || 'active',
@@ -315,7 +315,7 @@ export class UserRepository extends BaseRepository {
         COUNT(CASE WHEN role = 'admin' THEN 1 END) as admins,
         COUNT(CASE WHEN role = 'operator' THEN 1 END) as operators,
         COUNT(CASE WHEN role = 'support' THEN 1 END) as support,
-        COUNT(CASE WHEN role = 'customer' THEN 1 END) as customers,
+        COUNT(CASE WHEN role = 'contractor' THEN 1 END) as contractors,
         COUNT(CASE WHEN role = 'kiosk' THEN 1 END) as kiosks,
         COUNT(CASE WHEN is_active = true THEN 1 END) as active,
         COUNT(CASE WHEN last_login > NOW() - INTERVAL '24 hours' THEN 1 END) as active_24h,

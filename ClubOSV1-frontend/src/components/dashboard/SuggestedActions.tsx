@@ -7,7 +7,7 @@ import logger from '@/services/logger';
 
 interface SuggestedAction {
   id: string;
-  type: 'reset' | 'customer' | 'bay_idle' | 'pattern';
+  type: 'reset' | 'bay_idle' | 'pattern';
   title: string;
   description: string;
   priority: 'low' | 'medium' | 'high';

@@ -75,11 +75,8 @@ export class AuthController extends BaseController {
       return this.validationError(res, `Missing required fields: ${missing.join(', ')}`);
     }
     
-    // Force role to customer for public signup
-    if (userData.role && userData.role !== 'customer') {
-      return this.forbidden(res, 'Only customer registration is allowed through this endpoint');
-    }
-    userData.role = 'customer';
+    // Public signup disabled in CedarwoodOS (no customer role)
+    return this.forbidden(res, 'Public registration is not available. Contact an administrator.');
     
     const result = await this.authService.signup(userData);
     
@@ -289,7 +286,7 @@ export class AuthController extends BaseController {
     }
     
     // Validate role
-    const validRoles = ['admin', 'operator', 'support', 'kiosk', 'customer'];
+    const validRoles = ['admin', 'operator', 'support', 'kiosk', 'contractor'];
     if (!validRoles.includes(userData.role)) {
       return this.validationError(res, `Invalid role. Must be one of: ${validRoles.join(', ')}`);
     }

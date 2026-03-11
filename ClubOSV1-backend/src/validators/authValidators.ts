@@ -14,30 +14,8 @@ export const validateLogin: ValidationChain[] = [
     .notEmpty().withMessage('Password is required')
 ];
 
-export const validateSignup: ValidationChain[] = [
-  body('email')
-    .trim()
-    .notEmpty().withMessage('Email is required')
-    .isEmail().withMessage('Valid email is required')
-    .normalizeEmail(),
-  body('password')
-    .notEmpty().withMessage('Password is required')
-    .isLength({ min: 6 }).withMessage('Password must be at least 6 characters')
-    .matches(/[A-Z]/).withMessage('Password must contain at least one uppercase letter')
-    .matches(/[a-z]/).withMessage('Password must contain at least one lowercase letter')
-    .matches(/[0-9]/).withMessage('Password must contain at least one number'),
-  body('name')
-    .trim()
-    .notEmpty().withMessage('Name is required')
-    .isLength({ min: 2, max: 100 }).withMessage('Name must be between 2 and 100 characters'),
-  body('phone')
-    .optional()
-    .trim()
-    .matches(/^[\d\s\-\+\(\)]+$/).withMessage('Invalid phone number format'),
-  body('role')
-    .optional()
-    .isIn(['customer']).withMessage('Only customer registration is allowed through this endpoint')
-];
+// Customer signup validator removed (no customer role in CedarwoodOS)
+export const validateSignup: ValidationChain[] = [];
 
 export const validateForgotPassword: ValidationChain[] = [
   body('email')
@@ -104,7 +82,7 @@ export const validateAdminCreateUser: ValidationChain[] = [
     .isLength({ min: 2, max: 100 }).withMessage('Name must be between 2 and 100 characters'),
   body('role')
     .notEmpty().withMessage('Role is required')
-    .isIn(['admin', 'operator', 'support', 'kiosk', 'customer'])
+    .isIn(['admin', 'operator', 'support', 'kiosk', 'contractor'])
     .withMessage('Invalid role'),
   body('phone')
     .optional()

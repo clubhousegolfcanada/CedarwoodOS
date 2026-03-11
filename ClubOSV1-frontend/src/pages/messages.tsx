@@ -152,14 +152,9 @@ export default function Messages() {
     conversationsRef.current = conversations;
   }, [conversations]);
   
-  // SECURITY: Block customer role from accessing messages
+  // SECURITY: Only allow operator roles to access messages
   useEffect(() => {
     if (user) {
-      if (user.role === 'customer') {
-        router.push('/customer/');
-        return;
-      }
-      // Only allow operator roles
       if (!['admin', 'operator', 'support'].includes(user.role)) {
         router.push('/login');
         return;

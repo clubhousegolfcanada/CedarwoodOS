@@ -8,7 +8,7 @@ declare global {
       user?: {
         id: string;
         email: string;
-        role: 'admin' | 'operator' | 'support' | 'kiosk' | 'customer';
+        role: 'admin' | 'operator' | 'support' | 'kiosk' | 'contractor';
       };
     }
   }

@@ -152,9 +152,9 @@ export class AuthService {
         };
       }
 
-      // Set default role if not provided (only customer allowed for public signup)
-      if (!userData.role || userData.role === 'admin' || userData.role === 'operator') {
-        userData.role = 'customer';
+      // Set default role if not provided
+      if (!userData.role) {
+        userData.role = 'support';
       }
 
       // Generate email verification token

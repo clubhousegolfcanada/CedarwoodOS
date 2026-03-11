@@ -19,12 +19,6 @@ export default function ContractorDashboard() {
         case 'support':
           router.replace('/');
           break;
-        case 'customer':
-          router.replace('/customer/');
-          break;
-        case 'kiosk':
-          router.replace('/clubosboy');
-          break;
         default:
           router.replace('/login');
       }

@@ -7,7 +7,7 @@ import logger from '@/services/logger';
 import { clearAllAuthData } from '@/utils/authClearingUtils';
 
 // Export UserRole type
-export type UserRole = 'admin' | 'operator' | 'support' | 'kiosk' | 'customer' | 'contractor';
+export type UserRole = 'admin' | 'operator' | 'support' | 'kiosk' | 'contractor';
 export type ViewMode = 'operator' | 'customer';
 
 // User type for user management
@@ -133,9 +133,8 @@ export const useAuthState = create<AuthState>()(
         tokenManager.setToken(token);
         setStorageItem('clubos_user', JSON.stringify(user));
 
-        // Set view mode based on user role
-        const viewMode = user.role === 'customer' ? 'customer' : 'operator';
-        setStorageItem('clubos_view_mode', viewMode);
+        // Set view mode (always operator in CedarwoodOS)
+        setStorageItem('clubos_view_mode', 'operator');
 
         // Update state
         set({

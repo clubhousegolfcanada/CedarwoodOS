@@ -8,14 +8,9 @@ export default function Checklists() {
   const { user } = useAuthState();
   const router = useRouter();
 
-  // SECURITY: Block customer role from accessing checklists
+  // SECURITY: Only allow operator roles and contractors to access checklists
   useEffect(() => {
     if (user) {
-      if (user.role === 'customer') {
-        router.push('/customer/');
-        return;
-      }
-      // Allow operator roles and contractors
       if (!['admin', 'operator', 'support', 'contractor'].includes(user.role)) {
         router.push('/login');
         return;

@@ -25,14 +25,9 @@ export default function Operations() {
   // Default to users tab
   const [activeTab, setActiveTab] = useState<TabType>('users');
 
-  // SECURITY: Block customer role from accessing operations
+  // SECURITY: Only allow admin/operator to access operations
   useEffect(() => {
     if (user) {
-      if (user.role === 'customer') {
-        // Redirect customers to their dashboard
-        window.location.href = '/';
-        return;
-      }
       if (!['admin', 'operator'].includes(user.role)) {
         window.location.href = '/login';
       }

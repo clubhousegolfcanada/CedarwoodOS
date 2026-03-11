@@ -54,7 +54,7 @@ import debugKnowledgeRoutes from './routes/debug-knowledge';
 import adminRoutes from './routes/admin';
 import publicRoutes from './routes/public';
 import privacyRoutes from './routes/privacy';
-import customerInteractionsRoutes from './routes/customer-interactions';
+// customer-interactions route removed (no customer role in CedarwoodOS)
 import promptTemplatesRoutes from './routes/promptTemplates';
 import promptsRoutes from './routes/prompts';
 import csrfRoutes from './routes/csrf';
@@ -282,7 +282,7 @@ app.use('/api/admin', adminRoutes);
 // Performance monitoring endpoint (admin only)
 app.get('/api/admin/performance', authenticate, roleGuard(['admin']), getPerformanceStats);
 app.use('/api/privacy', privacyRoutes);
-app.use('/api/customer-interactions', customerInteractionsRoutes);
+// customer-interactions route removed (no customer role in CedarwoodOS)
 app.use('/api/prompt-templates', promptTemplatesRoutes);
 app.use('/api/prompts', promptsRoutes);
 app.use('/api/ai-automations', aiAutomationsRoutes);
