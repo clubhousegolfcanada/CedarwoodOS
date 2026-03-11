@@ -60,6 +60,7 @@ BEGIN
   NEW.search_vector = to_tsvector('english',
     COALESCE(NEW.user_description, '') || ' ' ||
     COALESCE(NEW.ai_description, '') || ' ' ||
+    COALESCE(NEW.content_summary, '') || ' ' ||
     COALESCE(NEW.location, '') || ' ' ||
     COALESCE(array_to_string(NEW.tags, ' '), '') || ' ' ||
     COALESCE(array_to_string(NEW.ai_tags, ' '), '') || ' ' ||

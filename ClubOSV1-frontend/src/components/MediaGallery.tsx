@@ -146,6 +146,26 @@ interface LightboxModalProps {
 }
 
 const LightboxModal: React.FC<LightboxModalProps> = ({ result, onClose, onPrev, onNext }) => {
+  const [fullResUrl, setFullResUrl] = React.useState<string | null>(null);
+  const [loadingFullRes, setLoadingFullRes] = React.useState(false);
+
+  // Fetch full-resolution image when lightbox opens
+  React.useEffect(() => {
+    if (result.id && result.mimeType?.startsWith('image/')) {
+      setLoadingFullRes(true);
+      setFullResUrl(null);
+      const { http } = require('@/api/http');
+      http.get(`media/${result.id}/file`)
+        .then((res: any) => {
+          if (res.data?.data?.fileData) {
+            setFullResUrl(res.data.data.fileData);
+          }
+        })
+        .catch(() => {}) // Fall back to thumbnail
+        .finally(() => setLoadingFullRes(false));
+    }
+  }, [result.id]);
+
   // Close on backdrop click
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) onClose();
@@ -178,9 +198,9 @@ const LightboxModal: React.FC<LightboxModalProps> = ({ result, onClose, onPrev, 
 
         {/* Image area */}
         <div className="flex-1 bg-[var(--bg-tertiary)] flex items-center justify-center min-h-[200px] max-h-[60vh] overflow-hidden">
-          {result.thumbnailData ? (
+          {result.thumbnailData || fullResUrl ? (
             <img
-              src={result.thumbnailData}
+              src={fullResUrl || result.thumbnailData || ''}
               alt={result.aiDescription || result.fileName}
               className="max-w-full max-h-[60vh] object-contain"
             />

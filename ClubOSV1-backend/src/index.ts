@@ -162,7 +162,7 @@ app.use('/api/slack/events', express.raw({ type: 'application/json' }), (req, re
   next();
 });
 
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '50mb' }));
 app.use(cookieParser());
 app.use(sanitizeMiddleware);
 app.use(requestLogger);

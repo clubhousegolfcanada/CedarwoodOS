@@ -38,7 +38,9 @@ export interface SearchOptions {
 
 // ─── OpenAI Client ───────────────────────────────────────────────────────────
 
-const openai = new OpenAI({ apiKey: config.OPENAI_API_KEY });
+const openai = config.OPENAI_API_KEY
+  ? new OpenAI({ apiKey: config.OPENAI_API_KEY })
+  : null;
 
 // ─── Service ─────────────────────────────────────────────────────────────────
 
@@ -129,6 +131,7 @@ class MediaSearchService {
     limit: number,
     location?: string
   ): Promise<MediaSearchResult[]> {
+    if (!openai) return []; // Skip semantic search without OpenAI
     // Generate query embedding
     const embeddingResponse = await openai.embeddings.create({
       model: 'text-embedding-3-small',
@@ -150,6 +153,7 @@ class MediaSearchService {
        WHERE embedding_json IS NOT NULL
          AND processing_status = 'completed'
          ${locationFilter}
+       ORDER BY created_at DESC
        LIMIT $1`,
       params
     );

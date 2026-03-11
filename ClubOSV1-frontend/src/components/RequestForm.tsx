@@ -313,33 +313,65 @@ const RequestForm: React.FC = () => {
       setIsProcessing(true);
       try {
         const token = isMounted ? tokenManager.getToken() : null;
-        
-        // Use the existing knowledge-router endpoint
+
+        // ─── Upload media attachments first (if any) via LLM endpoint ───
+        if (mediaAttachments.length > 0) {
+          const uploadPayload: any = {
+            requestDescription: data.requestDescription || '',
+            smartAssistEnabled: true,
+            mediaAttachments,
+          };
+
+          const uploadResponse = await http.post('llm/request', uploadPayload);
+          const uploadData = uploadResponse.data?.data;
+          const uploadCount = uploadData?.llmResponse?.mediaUploadConfirmation?.count || mediaAttachments.length;
+
+          // Also route text knowledge if description was provided
+          if (data.requestDescription && data.requestDescription.trim().length > 0) {
+            try {
+              await http.post('knowledge-router/parse-and-route', { input: data.requestDescription });
+            } catch {
+              // Text knowledge routing is secondary — media upload already succeeded
+            }
+          }
+
+          reset();
+          setMediaAttachments([]);
+
+          setLastResponse({
+            response: `Uploaded ${uploadCount} file${uploadCount > 1 ? 's' : ''} to the knowledge base. AI is analyzing the content — it will be searchable in a few seconds.${data.requestDescription ? `\n\nDescription: "${data.requestDescription}"` : ''}`,
+            confidence: 0.95,
+            route: 'Knowledge Upload',
+            status: 'completed'
+          } as any);
+          setShowResponse(true);
+          setIsNewSubmission(true);
+          return;
+        }
+
+        // ─── Text-only knowledge update (no attachments) ───
         const response = await http.post(
           `knowledge-router/parse-and-route`,
           { input: data.requestDescription },
-
         );
-        
+
         if (response.data.success) {
           const parsed = response.data.data.parsed;
           const openAIStatus = response.data.data.assistantUpdateStatus;
           const openAIError = response.data.data.openAIUpdateError;
-          
-          // Show appropriate notification based on OpenAI update status
+
           if (openAIStatus === 'success') {
-            notify('success', 'Knowledge added and OpenAI assistant updated successfully!');
+            notify('success', 'Knowledge added and AI updated successfully!');
           } else if (openAIStatus === 'failed') {
-            notify('warning', `Knowledge saved locally but OpenAI update failed: ${openAIError || 'Check logs'}`);
+            notify('warning', `Knowledge saved locally but AI update failed: ${openAIError || 'Check logs'}`);
           } else {
             notify('success', 'Knowledge added successfully!');
           }
-          
+
           reset();
-          
-          // Show what was added with OpenAI status
+
           setLastResponse({
-            response: `${openAIStatus === 'success' ? '✅' : '⚠️'} Knowledge ${openAIStatus === 'success' ? 'Added & Synced' : 'Saved Locally'}!\n\nCategory: ${parsed.category}\nTarget Assistant: ${parsed.target_assistant}\nIntent: ${parsed.intent}\n\nValue: "${parsed.value}"\n\nOpenAI Update: ${openAIStatus === 'success' ? '✅ Successful' : `❌ Failed (${openAIError || 'See logs'})`}\nDatabase: ✅ Saved\n\n${openAIStatus === 'success' ? 'The AI will now use this knowledge when answering related questions.' : 'Knowledge saved locally but may not be available to AI until sync is fixed.'}`,
+            response: `${openAIStatus === 'success' ? '✅' : '⚠️'} Knowledge ${openAIStatus === 'success' ? 'Added & Synced' : 'Saved Locally'}!\n\nCategory: ${parsed.category}\nIntent: ${parsed.intent}\n\nValue: "${parsed.value}"\n\nAI Update: ${openAIStatus === 'success' ? '✅ Successful' : `❌ Failed (${openAIError || 'See logs'})`}\nDatabase: ✅ Saved`,
             confidence: openAIStatus === 'success' ? 1.0 : 0.5,
             route: 'Knowledge',
             status: openAIStatus === 'success' ? 'completed' : 'partial'
@@ -765,7 +797,7 @@ const RequestForm: React.FC = () => {
           </div>
 
           {/* CedarwoodOS Media Upload Zone — shown in Update (knowledge) mode for adding photos to database */}
-          {isKnowledgeMode && (
+          {(isKnowledgeMode || (!isTicketMode && !isReceiptMode)) && (
             <div className="mb-3 -mt-2">
               <MediaUploadZone
                 attachments={mediaAttachments}

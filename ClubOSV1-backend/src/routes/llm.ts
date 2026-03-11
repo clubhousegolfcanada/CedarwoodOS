@@ -195,12 +195,34 @@ router.post('/request',
           const { mediaAssetService } = await import('../services/mediaAssetService');
           const mediaResults = [];
 
-          for (const attachment of req.body.mediaAttachments) {
+          const MAX_ATTACHMENTS = 5;
+          const MAX_DECODED_SIZE = 20 * 1024 * 1024; // 20MB per file
+          const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/gif', 'application/pdf'];
+          const attachments = req.body.mediaAttachments.slice(0, MAX_ATTACHMENTS);
+
+          for (const attachment of attachments) {
+            // Validate attachment structure
+            if (!attachment.data || typeof attachment.data !== 'string') {
+              logger.warn('[LLM] Skipping invalid attachment: missing or non-string data');
+              continue;
+            }
+
+            const mimeType = attachment.mimeType || attachment.type || 'image/jpeg';
+            if (!ALLOWED_TYPES.some(t => mimeType.startsWith(t.split('/')[0]))) {
+              logger.warn(`[LLM] Skipping unsupported file type: ${mimeType}`);
+              continue;
+            }
+
             // Decode base64 — handle both "data:image/jpeg;base64,..." and raw base64
             const base64Data = attachment.data.includes(',')
               ? attachment.data.split(',')[1]
               : attachment.data;
             const buffer = Buffer.from(base64Data, 'base64');
+
+            if (buffer.length > MAX_DECODED_SIZE) {
+              logger.warn(`[LLM] Skipping oversized file: ${buffer.length} bytes`);
+              continue;
+            }
 
             const asset = await mediaAssetService.createMediaAsset(buffer, {
               userDescription: req.body.requestDescription || null,

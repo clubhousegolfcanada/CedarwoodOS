@@ -23,7 +23,9 @@ interface VisionAnalysis {
 
 // ─── OpenAI Client ───────────────────────────────────────────────────────────
 
-const openai = new OpenAI({ apiKey: config.OPENAI_API_KEY });
+const openai = config.OPENAI_API_KEY
+  ? new OpenAI({ apiKey: config.OPENAI_API_KEY })
+  : null;
 
 // ─── Service ─────────────────────────────────────────────────────────────────
 
@@ -61,7 +63,7 @@ class MediaProcessingService {
       let category = 'other';
 
       // Step 1: Vision Analysis (images only)
-      if (isImage && asset.file_data) {
+      if (isImage && asset.file_data && openai) {
         const analysis = await this.analyzeImage(asset.file_data);
         aiDescription = analysis.description;
         aiTags = analysis.tags;
@@ -82,16 +84,20 @@ class MediaProcessingService {
 
       // Step 3: Generate embedding
       let embeddingStr: string | null = null;
-      try {
-        const embeddingResponse = await openai.embeddings.create({
-          model: 'text-embedding-3-small',
-          input: contentSummary,
-        });
-        const embedding = embeddingResponse.data[0].embedding;
-        embeddingStr = `[${embedding.join(',')}]`;
-      } catch (embError) {
-        logger.error(`[MediaProcessing] Embedding generation failed for ${assetId}:`, embError);
-        // Continue without embedding — asset is still searchable via full-text
+      if (openai) {
+        try {
+          const embeddingResponse = await openai.embeddings.create({
+            model: 'text-embedding-3-small',
+            input: contentSummary,
+          });
+          const embedding = embeddingResponse.data[0].embedding;
+          embeddingStr = `[${embedding.join(',')}]`;
+        } catch (embError) {
+          logger.error(`[MediaProcessing] Embedding generation failed for ${assetId}:`, embError);
+          // Continue without embedding — asset is still searchable via full-text
+        }
+      } else {
+        logger.warn(`[MediaProcessing] OpenAI not configured, skipping embedding for ${assetId}`);
       }
 
       // Step 4: Update asset with AI results
@@ -149,6 +155,7 @@ class MediaProcessingService {
         imageUrl = `data:image/jpeg;base64,${imageUrl}`;
       }
 
+      if (!openai) throw new Error('OpenAI not configured');
       const response = await openai.chat.completions.create({
         model: 'gpt-4o',
         messages: [
