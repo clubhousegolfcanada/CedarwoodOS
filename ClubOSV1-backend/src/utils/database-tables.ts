@@ -166,6 +166,73 @@ export const createTablesSQL = {
       metadata JSONB DEFAULT '{}'::jsonb,
       "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
+  `,
+
+  knowledge_store: `
+    CREATE TABLE IF NOT EXISTS knowledge_store (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      key VARCHAR(500) NOT NULL,
+      value JSONB NOT NULL DEFAULT '{}'::jsonb,
+      confidence DECIMAL(3,2) DEFAULT 0.5,
+      verification_status VARCHAR(50) DEFAULT 'unverified',
+      source_type VARCHAR(100) DEFAULT 'manual',
+      category VARCHAR(100) DEFAULT 'general',
+      created_by UUID,
+      updated_by UUID,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `,
+
+  decision_patterns: `
+    CREATE TABLE IF NOT EXISTS decision_patterns (
+      id SERIAL PRIMARY KEY,
+      pattern_type VARCHAR(100) NOT NULL DEFAULT 'correction',
+      pattern_signature VARCHAR(500) NOT NULL,
+      trigger_text TEXT NOT NULL,
+      response_template TEXT NOT NULL,
+      confidence_score DECIMAL(3,2) DEFAULT 0.5,
+      is_active BOOLEAN DEFAULT true,
+      auto_executable BOOLEAN DEFAULT false,
+      execution_count INTEGER DEFAULT 0,
+      created_by UUID,
+      last_modified_by UUID,
+      metadata JSONB DEFAULT '{}'::jsonb,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `,
+
+  response_tracking: `
+    CREATE TABLE IF NOT EXISTS response_tracking (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      route VARCHAR(100),
+      original_query TEXT,
+      response_text TEXT,
+      confidence DECIMAL(3,2),
+      corrected BOOLEAN DEFAULT false,
+      correction_count INTEGER DEFAULT 0,
+      user_id UUID,
+      metadata JSONB DEFAULT '{}'::jsonb,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `,
+
+  response_corrections: `
+    CREATE TABLE IF NOT EXISTS response_corrections (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      response_id UUID,
+      original_response TEXT NOT NULL,
+      corrected_response TEXT NOT NULL,
+      knowledge_updated INTEGER DEFAULT 0,
+      pattern_id INTEGER,
+      pattern_created BOOLEAN DEFAULT false,
+      user_id UUID,
+      user_email VARCHAR(255),
+      context JSONB DEFAULT '{}'::jsonb,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
   `
 };
 
@@ -210,7 +277,26 @@ export const createIndexesSQL = [
   
   // Customer interaction indexes
   'CREATE INDEX IF NOT EXISTS idx_customer_interactions_user_id ON customer_interactions(user_id);',
-  'CREATE INDEX IF NOT EXISTS idx_customer_interactions_created_at ON customer_interactions("createdAt");'
+  'CREATE INDEX IF NOT EXISTS idx_customer_interactions_created_at ON customer_interactions("createdAt");',
+
+  // Knowledge store indexes
+  'CREATE INDEX IF NOT EXISTS idx_knowledge_store_key ON knowledge_store(key);',
+  'CREATE INDEX IF NOT EXISTS idx_knowledge_store_category ON knowledge_store(category);',
+  'CREATE INDEX IF NOT EXISTS idx_knowledge_store_verification ON knowledge_store(verification_status);',
+
+  // Decision patterns indexes
+  'CREATE INDEX IF NOT EXISTS idx_decision_patterns_signature ON decision_patterns(pattern_signature);',
+  'CREATE INDEX IF NOT EXISTS idx_decision_patterns_active ON decision_patterns(is_active);',
+  'CREATE INDEX IF NOT EXISTS idx_decision_patterns_type ON decision_patterns(pattern_type);',
+
+  // Response tracking indexes
+  'CREATE INDEX IF NOT EXISTS idx_response_tracking_route ON response_tracking(route);',
+  'CREATE INDEX IF NOT EXISTS idx_response_tracking_corrected ON response_tracking(corrected);',
+  'CREATE INDEX IF NOT EXISTS idx_response_tracking_created_at ON response_tracking(created_at);',
+
+  // Response corrections indexes
+  'CREATE INDEX IF NOT EXISTS idx_response_corrections_user_id ON response_corrections(user_id);',
+  'CREATE INDEX IF NOT EXISTS idx_response_corrections_created_at ON response_corrections(created_at);'
 ];
 
 // Add routing optimizations table

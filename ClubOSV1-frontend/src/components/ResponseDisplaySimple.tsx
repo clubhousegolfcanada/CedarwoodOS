@@ -550,13 +550,13 @@ export const ResponseDisplaySimple: React.FC<Props> = ({ response, route, photos
 
         // Provide detailed feedback
         let message = '✓ Correction saved!';
+        if (results.knowledgeUpdated > 0) {
+          message += ` ${results.knowledgeUpdated} knowledge ${results.knowledgeUpdated === 1 ? 'entry' : 'entries'} updated.`;
+        }
         if (results.patternCreated) {
           message += ' New pattern created for automation.';
         } else if (results.patternId) {
-          message += ' Pattern updated.';
-        }
-        if (results.knowledgeUpdated > 0) {
-          message += ` ${results.knowledgeUpdated} knowledge entries updated.`;
+          message += ' Existing pattern updated.';
         }
 
         toast.success(message);

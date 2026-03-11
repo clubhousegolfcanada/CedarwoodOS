@@ -334,12 +334,16 @@ router.post('/save',
         route
       });
 
+      const hasErrors = results.errors.length > 0 && results.knowledgeUpdated === 0;
+
       res.json({
-        success: true,
+        success: !hasErrors,
         results,
-        message: results.patternCreated
-          ? 'Correction saved and new pattern created for future automation'
-          : 'Correction saved and pattern updated'
+        message: hasErrors
+          ? 'Failed to save correction: ' + results.errors.join(', ')
+          : results.patternCreated
+            ? 'Correction saved and new pattern created for future automation'
+            : 'Correction saved and pattern updated'
       });
 
     } catch (error) {
