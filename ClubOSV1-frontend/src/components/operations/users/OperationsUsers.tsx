@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuthState, useStore } from '@/state/useStore';
 import { http } from '@/api/http';
 import toast from 'react-hot-toast';
-import { Save, Download, Upload, Trash2, Key, Eye, EyeOff, Plus, Edit2, X, Check, RefreshCw, Users, Shield, Clock, Database, Coins, ArrowUp, ArrowDown, Award, Gift } from 'lucide-react';
-import { CustomAchievementCreator } from '@/components/achievements/CustomAchievementCreator';
+import { Download, Upload, Trash2, Key, Eye, EyeOff, Plus, Edit2, X, Check, RefreshCw, Users, Shield, Database } from 'lucide-react';
 import { tokenManager } from '@/utils/tokenManager';
 import logger from '@/services/logger';
 
@@ -18,7 +17,6 @@ type User = {
   createdAt: string;
   updatedAt: string;
   signup_date?: string;
-  cc_balance?: number;
   // Contractor specific fields
   locations?: string[];
   permissions?: {
@@ -66,26 +64,6 @@ export const OperationsUsers: React.FC = () => {
   const [newPassword, setNewPassword] = useState('');
   const [showResetPassword, setShowResetPassword] = useState(false);
   const [autoApproveCustomers, setAutoApproveCustomers] = useState(true);
-  
-  // CC Adjustment states
-  const [showCCAdjustment, setShowCCAdjustment] = useState(false);
-  const [ccAdjustmentUser, setCCAdjustmentUser] = useState<User | null>(null);
-  const [ccBalance, setCCBalance] = useState<number>(0);
-  const [adjustmentAmount, setAdjustmentAmount] = useState<string>('');
-  const [adjustmentType, setAdjustmentType] = useState<'credit' | 'debit'>('credit');
-  const [adjustmentReason, setAdjustmentReason] = useState<string>('');
-  const [loadingBalance, setLoadingBalance] = useState(false);
-  
-  // Achievement states
-  const [showAchievementCreator, setShowAchievementCreator] = useState(false);
-  const [achievementUser, setAchievementUser] = useState<User | null>(null);
-  
-  // Box Management states
-  const [showBoxManagement, setShowBoxManagement] = useState(false);
-  const [boxManagementUser, setBoxManagementUser] = useState<User | null>(null);
-  const [boxCount, setBoxCount] = useState<string>('3');
-  const [userBoxes, setUserBoxes] = useState<any[]>([]);
-  const [loadingBoxes, setLoadingBoxes] = useState(false);
   
   const { user } = useAuthState();
   const token = user?.token || tokenManager.getToken();
@@ -168,29 +146,7 @@ export const OperationsUsers: React.FC = () => {
         return;
       }
       
-      // Fetch CC balances for customers
-      const customersWithBalances = await Promise.all(
-        usersData.map(async (user: any) => {
-          if (user.role === 'customer') {
-            try {
-              const balanceResponse = await http.get(
-                `challenges/cc-balance/${user.id}`,
-
-              );
-              return {
-                ...user,
-                cc_balance: balanceResponse.data?.data?.balance || 0
-              };
-            } catch (error) {
-              logger.debug(`Could not fetch balance for ${user.name}`);
-              return { ...user, cc_balance: 0 };
-            }
-          }
-          return user;
-        })
-      );
-      
-      setUsers(customersWithBalances);
+      setUsers(usersData);
     } catch (error: any) {
       logger.error('Error fetching users:', error.response || error);
       if (error.response?.status === 401) {
@@ -414,175 +370,6 @@ export const OperationsUsers: React.FC = () => {
       reader.readAsText(file);
     };
     input.click();
-  };
-
-  const openBoxManagement = async (customer: User) => {
-    setBoxManagementUser(customer);
-    setShowBoxManagement(true);
-    setBoxCount('3');
-    
-    // Fetch user's current boxes
-    setLoadingBoxes(true);
-    const authToken = token || tokenManager.getToken();
-    
-    try {
-      const response = await http.get(`boxes/user/${customer.id}`, {
-
-      });
-      
-      if (response.data.success) {
-        setUserBoxes(response.data.data || []);
-      }
-    } catch (error) {
-      logger.error('Error fetching user boxes:', error);
-      setUserBoxes([]);
-    } finally {
-      setLoadingBoxes(false);
-    }
-  };
-
-  const handleGrantBoxes = async () => {
-    if (!boxManagementUser || !boxCount) return;
-    
-    setLoading(true);
-    const authToken = token || tokenManager.getToken();
-    
-    try {
-      const response = await http.post(
-        `boxes/grant`,
-        {
-          userId: boxManagementUser.id,
-          quantity: parseInt(boxCount)
-        },
-        {
-
-        }
-      );
-      
-      if (response.data.success) {
-        toast.success(`Successfully granted ${boxCount} box${parseInt(boxCount) > 1 ? 'es' : ''} to ${boxManagementUser.name}`);
-        setShowBoxManagement(false);
-        setBoxManagementUser(null);
-      } else {
-        toast.error('Failed to grant boxes');
-      }
-    } catch (error: any) {
-      logger.error('Error granting boxes:', error);
-      toast.error(error.response?.data?.message || 'Failed to grant boxes');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleClearBoxes = async () => {
-    if (!boxManagementUser) return;
-    
-    if (!confirm(`Are you sure you want to clear all available boxes for ${boxManagementUser.name}?`)) {
-      return;
-    }
-    
-    setLoading(true);
-    const authToken = token || tokenManager.getToken();
-    
-    try {
-      const response = await http.delete(
-        `boxes/user/${boxManagementUser.id}/available`,
-        {
-
-        }
-      );
-      
-      if (response.data.success) {
-        toast.success(`Cleared all available boxes for ${boxManagementUser.name}`);
-        // Refresh boxes list
-        openBoxManagement(boxManagementUser);
-      } else {
-        toast.error('Failed to clear boxes');
-      }
-    } catch (error: any) {
-      logger.error('Error clearing boxes:', error);
-      toast.error(error.response?.data?.message || 'Failed to clear boxes');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const openCCAdjustment = async (customer: User) => {
-    setCCAdjustmentUser(customer);
-    setShowCCAdjustment(true);
-    setAdjustmentAmount('');
-    setAdjustmentType('credit');
-    setAdjustmentReason('');
-    setLoadingBalance(true);
-    
-    const authToken = token || tokenManager.getToken();
-    
-    try {
-      const response = await http.get(
-        `admin/cc-adjustments/${customer.id}/balance`,
-
-      );
-      
-      if (response.data.success) {
-        setCCBalance(response.data.data.balance);
-      }
-    } catch (error: any) {
-      logger.error('Error fetching CC balance:', error);
-      toast.error('Failed to fetch CC balance');
-      setCCBalance(0);
-    } finally {
-      setLoadingBalance(false);
-    }
-  };
-  
-  const handleCCAdjustment = async () => {
-    const authToken = token || tokenManager.getToken();
-    
-    if (!ccAdjustmentUser) return;
-    
-    const amount = parseFloat(adjustmentAmount);
-    if (isNaN(amount) || amount <= 0) {
-      toast.error('Please enter a valid positive amount');
-      return;
-    }
-    
-    if (!adjustmentReason.trim()) {
-      toast.error('Please provide a reason for the adjustment');
-      return;
-    }
-    
-    if (adjustmentType === 'debit' && amount > ccBalance) {
-      toast.error(`Cannot debit more than current balance (${ccBalance} CC)`);
-      return;
-    }
-    
-    try {
-      setLoading(true);
-      
-      const response = await http.post(
-        `admin/cc-adjustments/${ccAdjustmentUser.id}/adjust`,
-        {
-          amount: amount,
-          type: adjustmentType,
-          reason: adjustmentReason
-        },
-
-      );
-      
-      if (response.data.success) {
-        const data = response.data.data;
-        toast.success(
-          `Successfully ${adjustmentType}ed ${amount} CC. New balance: ${data.balanceAfter} CC`
-        );
-        setShowCCAdjustment(false);
-        setCCAdjustmentUser(null);
-      }
-    } catch (error: any) {
-      logger.error('Error adjusting CC:', error);
-      toast.error(error.response?.data?.error || 'Failed to adjust CC balance');
-    } finally {
-      setLoading(false);
-    }
   };
 
   // Separate operators and customers
@@ -841,7 +628,6 @@ export const OperationsUsers: React.FC = () => {
                     <th className="pb-3">Name</th>
                     <th className="pb-3">Email</th>
                     <th className="pb-3">Phone</th>
-                    <th className="pb-3">ClubCoins</th>
                     <th className="pb-3">Status</th>
                     <th className="pb-3">Member Since</th>
                     <th className="pb-3">Actions</th>
@@ -858,14 +644,6 @@ export const OperationsUsers: React.FC = () => {
                       </td>
                       <td className="py-3">
                         <span className="text-sm text-gray-600">{customer.phone || '-'}</span>
-                      </td>
-                      <td className="py-3">
-                        <div className="flex items-center gap-1">
-                          <Coins className="h-4 w-4 text-yellow-500" />
-                          <span className="text-sm font-medium text-gray-900">
-                            {customer.cc_balance?.toLocaleString() || '0'}
-                          </span>
-                        </div>
                       </td>
                       <td className="py-3">
                         {customer.status === 'pending_approval' ? (
@@ -910,30 +688,6 @@ export const OperationsUsers: React.FC = () => {
                             </>
                           ) : (
                             <>
-                              <button
-                                onClick={() => {
-                                  setAchievementUser(customer);
-                                  setShowAchievementCreator(true);
-                                }}
-                                className="p-1 text-yellow-600 hover:text-yellow-700"
-                                title="Award Achievement"
-                              >
-                                <Award className="h-4 w-4" />
-                              </button>
-                              <button
-                                onClick={() => openCCAdjustment(customer)}
-                                className="p-1 text-[var(--status-success)] hover:opacity-80"
-                                title="Adjust CC Balance"
-                              >
-                                <Coins className="h-4 w-4" />
-                              </button>
-                              <button
-                                onClick={() => openBoxManagement(customer)}
-                                className="p-1 text-purple-600 hover:text-purple-700"
-                                title="Manage Boxes"
-                              >
-                                <Gift className="h-4 w-4" />
-                              </button>
                               <button
                                 onClick={() => handleEditUser(customer)}
                                 className="p-1 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
@@ -1009,7 +763,7 @@ export const OperationsUsers: React.FC = () => {
               <h3 className="font-semibold text-green-900 mb-2">Support</h3>
               <ul className="text-sm text-green-700 space-y-1">
                 <li>• Commands access</li>
-                <li>• ClubOS Boy</li>
+                <li>• Terminal access</li>
                 <li>• Message viewing</li>
                 <li>• Limited operations</li>
               </ul>
@@ -1017,7 +771,7 @@ export const OperationsUsers: React.FC = () => {
             <div className="p-4 bg-gray-50 rounded-lg">
               <h3 className="font-semibold text-gray-900 mb-2">Kiosk</h3>
               <ul className="text-sm text-gray-700 space-y-1">
-                <li>• ClubOS Boy only</li>
+                <li>• Terminal only</li>
                 <li>• Public terminal</li>
                 <li>• Auto-redirect</li>
                 <li>• No admin access</li>
@@ -1027,9 +781,9 @@ export const OperationsUsers: React.FC = () => {
               <h3 className="font-semibold text-orange-900 mb-2">Customer</h3>
               <ul className="text-sm text-orange-700 space-y-1">
                 <li>• Mobile app access</li>
-                <li>• Book bays</li>
-                <li>• Social features</li>
-                <li>• View stats</li>
+                <li>• Submit requests</li>
+                <li>• View documents</li>
+                <li>• View history</li>
               </ul>
             </div>
             <div className="p-4 bg-indigo-50 rounded-lg">
@@ -1325,304 +1079,6 @@ export const OperationsUsers: React.FC = () => {
         </div>
       )}
 
-      {/* CC Adjustment Modal */}
-      {showCCAdjustment && ccAdjustmentUser && (
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Adjust CC Balance</h3>
-              <button
-                onClick={() => {
-                  setShowCCAdjustment(false);
-                  setCCAdjustmentUser(null);
-                }}
-                className="text-gray-400 hover:text-gray-500"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            
-            <div className="space-y-4">
-              {/* User Info */}
-              <div className="bg-gray-50 rounded-lg p-3">
-                <div className="text-sm text-gray-600">Customer</div>
-                <div className="font-medium text-gray-900">{ccAdjustmentUser.name}</div>
-                <div className="text-sm text-gray-500">{ccAdjustmentUser.email}</div>
-                <div className="mt-2 flex items-center gap-2">
-                  <Coins className="h-4 w-4 text-green-600" />
-                  <span className="font-semibold text-gray-900">
-                    Current Balance: {loadingBalance ? '...' : `${ccBalance} CC`}
-                  </span>
-                </div>
-              </div>
-              
-              {/* Adjustment Type */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Adjustment Type</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => setAdjustmentType('credit')}
-                    className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg border-2 transition-colors ${
-                      adjustmentType === 'credit'
-                        ? 'border-green-500 bg-green-50 text-green-700'
-                        : 'border-gray-300 hover:border-gray-400'
-                    }`}
-                  >
-                    <ArrowUp className="h-4 w-4" />
-                    <span className="font-medium">Credit</span>
-                  </button>
-                  <button
-                    onClick={() => setAdjustmentType('debit')}
-                    className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg border-2 transition-colors ${
-                      adjustmentType === 'debit'
-                        ? 'border-red-500 bg-red-50 text-red-700'
-                        : 'border-gray-300 hover:border-gray-400'
-                    }`}
-                  >
-                    <ArrowDown className="h-4 w-4" />
-                    <span className="font-medium">Debit</span>
-                  </button>
-                </div>
-              </div>
-              
-              {/* Amount */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Amount (CC)</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={adjustmentAmount}
-                  onChange={(e) => setAdjustmentAmount(e.target.value)}
-                  placeholder="Enter amount"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                />
-                {adjustmentAmount && (
-                  <div className="mt-1 text-sm text-gray-600">
-                    New balance will be:{' '}
-                    <span className="font-semibold">
-                      {adjustmentType === 'credit'
-                        ? ccBalance + parseFloat(adjustmentAmount || '0')
-                        : ccBalance - parseFloat(adjustmentAmount || '0')
-                      } CC
-                    </span>
-                  </div>
-                )}
-              </div>
-              
-              {/* Reason */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Reason <span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  value={adjustmentReason}
-                  onChange={(e) => setAdjustmentReason(e.target.value)}
-                  placeholder="Enter reason for adjustment (required)"
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                />
-              </div>
-            </div>
-            
-            <div className="flex justify-end space-x-3 mt-6">
-              <button
-                onClick={() => {
-                  setShowCCAdjustment(false);
-                  setCCAdjustmentUser(null);
-                }}
-                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleCCAdjustment}
-                disabled={loading || !adjustmentAmount || !adjustmentReason.trim()}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
-                  loading || !adjustmentAmount || !adjustmentReason.trim()
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : adjustmentType === 'credit'
-                    ? 'bg-green-600 text-white hover:bg-green-700'
-                    : 'bg-red-600 text-white hover:bg-red-700'
-                }`}
-              >
-                {loading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    Processing...
-                  </>
-                ) : (
-                  <>
-                    {adjustmentType === 'credit' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
-                    {adjustmentType === 'credit' ? 'Add' : 'Remove'} CC
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Custom Achievement Creator Modal */}
-      {showAchievementCreator && achievementUser && (
-        <CustomAchievementCreator
-          isOpen={showAchievementCreator}
-          onClose={() => {
-            setShowAchievementCreator(false);
-            setAchievementUser(null);
-          }}
-          userId={achievementUser.id}
-          userName={achievementUser.name}
-          userToken={token || tokenManager.getToken() || ''}
-          onSuccess={() => {
-            toast.success('Achievement created and awarded successfully!');
-          }}
-        />
-      )}
-
-      {/* Box Management Modal */}
-      {showBoxManagement && boxManagementUser && (
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Manage Boxes</h3>
-              <button
-                onClick={() => {
-                  setShowBoxManagement(false);
-                  setBoxManagementUser(null);
-                }}
-                className="text-gray-400 hover:text-gray-500"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            
-            <div className="space-y-4">
-              {/* User Info */}
-              <div className="bg-gray-50 rounded-lg p-3">
-                <div className="text-sm text-gray-600">Customer</div>
-                <div className="font-medium text-gray-900">{boxManagementUser.name}</div>
-                <div className="text-sm text-gray-500">{boxManagementUser.email}</div>
-              </div>
-              
-              {/* Current Boxes */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Current Boxes</label>
-                <div className="bg-gray-50 rounded-lg p-3">
-                  {loadingBoxes ? (
-                    <div className="text-center py-2">
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-purple-600 mx-auto"></div>
-                    </div>
-                  ) : userBoxes.length > 0 ? (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Available Boxes:</span>
-                        <span className="font-semibold text-purple-600">
-                          {userBoxes.filter(b => b.status === 'available').length}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Opened Boxes:</span>
-                        <span className="font-semibold text-gray-600">
-                          {userBoxes.filter(b => b.status === 'opened').length}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Total Boxes:</span>
-                        <span className="font-semibold text-gray-900">
-                          {userBoxes.length}
-                        </span>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-gray-500">No boxes found</p>
-                  )}
-                </div>
-              </div>
-              
-              {/* Grant New Boxes */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Grant New Boxes</label>
-                <div className="flex gap-2">
-                  <select
-                    value={boxCount}
-                    onChange={(e) => setBoxCount(e.target.value)}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  >
-                    <option value="1">1 Box</option>
-                    <option value="3">3 Boxes</option>
-                    <option value="5">5 Boxes</option>
-                    <option value="10">10 Boxes</option>
-                  </select>
-                  <button
-                    onClick={handleGrantBoxes}
-                    disabled={loading}
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
-                      loading
-                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                        : 'bg-purple-600 text-white hover:bg-purple-700'
-                    }`}
-                  >
-                    {loading ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                        Granting...
-                      </>
-                    ) : (
-                      <>
-                        <Gift className="h-4 w-4" />
-                        Grant
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-              
-              {/* Clear Available Boxes */}
-              {userBoxes.filter(b => b.status === 'available').length > 0 && (
-                <div className="border-t pt-4">
-                  <button
-                    onClick={handleClearBoxes}
-                    disabled={loading}
-                    className={`w-full px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
-                      loading
-                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                        : 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200'
-                    }`}
-                  >
-                    {loading ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
-                        Clearing...
-                      </>
-                    ) : (
-                      <>
-                        <Trash2 className="h-4 w-4" />
-                        Clear All Available Boxes
-                      </>
-                    )}
-                  </button>
-                  <p className="text-xs text-gray-500 mt-2 text-center">
-                    This will remove all unopened boxes for this user
-                  </p>
-                </div>
-              )}
-            </div>
-            
-            <div className="flex justify-end space-x-3 mt-6">
-              <button
-                onClick={() => {
-                  setShowBoxManagement(false);
-                  setBoxManagementUser(null);
-                }}
-                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

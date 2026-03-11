@@ -1,13 +1,12 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { useAuthState } from '@/state/useStore';
-import { Users, Zap, Brain, ClipboardList, Layers, Receipt } from 'lucide-react';
+import { Users, Zap, ClipboardList, Layers, Receipt } from 'lucide-react';
 import SubNavigation, { SubNavTab } from '@/components/SubNavigation';
 import OperatorLayout from '@/components/OperatorLayout';
 
 // Lazy load operation components for better performance
 const OperationsUsers = lazy(() => import('@/components/operations/users/OperationsUsers').then(m => ({ default: m.OperationsUsers })));
 const OperationsIntegrations = lazy(() => import('@/components/operations/integrations/OperationsIntegrations').then(m => ({ default: m.OperationsIntegrations })));
-const OperationsPatternsEnhanced = lazy(() => import('@/components/operations/patterns/OperationsPatternsEnhanced').then(m => ({ default: m.OperationsPatternsEnhanced })));
 const WhiteLabelPlanner = lazy(() => import('@/components/operations/white-label/WhiteLabelPlanner').then(m => ({ default: m.WhiteLabelPlanner })));
 const ChecklistsAdminComponent = lazy(() => import('@/components/operations/checklists/ChecklistsAdminComponent').then(m => ({ default: m.ChecklistsAdminComponent })));
 const OperationsReceipts = lazy(() => import('@/components/operations/receipts/OperationsReceipts').then(m => ({ default: m.OperationsReceipts })));
@@ -19,31 +18,25 @@ const TabLoading = () => (
   </div>
 );
 
-type TabType = 'users' | 'integrations' | 'patterns' | 'checklists-admin' | 'white-label' | 'receipts';
+type TabType = 'users' | 'integrations' | 'checklists-admin' | 'white-label' | 'receipts';
 
 export default function Operations() {
   const { user } = useAuthState();
-  // Default to patterns for operators, users for admins
-  const [activeTab, setActiveTab] = useState<TabType>('patterns');
+  // Default to users tab
+  const [activeTab, setActiveTab] = useState<TabType>('users');
 
   // SECURITY: Block customer role from accessing operations
   useEffect(() => {
     if (user) {
       if (user.role === 'customer') {
         // Redirect customers to their dashboard
-        window.location.href = '/customer/';
+        window.location.href = '/';
         return;
       }
       if (!['admin', 'operator'].includes(user.role)) {
-        // Redirect other non-authorized users to login
         window.location.href = '/login';
       }
-      // Set initial tab based on role
-      if (user.role === 'admin') {
-        setActiveTab('users');
-      } else if (user.role === 'operator') {
-        setActiveTab('patterns');
-      }
+      setActiveTab('users');
     }
   }, [user]);
 
@@ -51,7 +44,7 @@ export default function Operations() {
   useEffect(() => {
     const handleTabChange = (event: CustomEvent) => {
       const tab = event.detail as TabType;
-      if (tab && ['users', 'integrations', 'patterns', 'checklists-admin', 'white-label', 'receipts'].includes(tab)) {
+      if (tab && ['users', 'integrations', 'checklists-admin', 'white-label', 'receipts'].includes(tab)) {
         setActiveTab(tab);
       }
     };
@@ -77,7 +70,6 @@ export default function Operations() {
   const tabConfigs = [
     { id: 'users', label: 'Users', icon: Users, adminOnly: true },
     { id: 'integrations', label: 'Integrations & AI', icon: Zap, adminOnly: true },
-    { id: 'patterns', label: 'V3-PLS', icon: Brain, adminOnly: false },
     { id: 'checklists-admin', label: 'Checklists Admin', icon: ClipboardList, adminOnly: true },
     { id: 'white-label', label: 'White Label', icon: Layers, adminOnly: true },
     { id: 'receipts', label: 'Receipts', icon: Receipt, adminOnly: true }
@@ -98,8 +90,6 @@ export default function Operations() {
         return 'Manage operators, customers, roles, and access permissions';
       case 'integrations':
         return 'Manage integrations, AI automations, and knowledge base';
-      case 'patterns':
-        return 'V3 Pattern Learning System - AI-powered message automation';
       case 'checklists-admin':
         return 'Manage checklist templates and assignments for all locations';
       case 'white-label':
@@ -119,8 +109,6 @@ export default function Operations() {
           return user.role === 'admin' ? <OperationsUsers /> : null;
         case 'integrations':
           return user.role === 'admin' ? <OperationsIntegrations /> : null;
-        case 'patterns':
-          return <OperationsPatternsEnhanced />;
         case 'checklists-admin':
           return user.role === 'admin' ? <ChecklistsAdminComponent /> : null;
         case 'white-label':
@@ -128,7 +116,7 @@ export default function Operations() {
         case 'receipts':
           return user.role === 'admin' ? <OperationsReceipts /> : null;
         default:
-          return user.role === 'admin' ? <OperationsUsers /> : <OperationsPatternsEnhanced />;
+          return <OperationsUsers />;
       }
     })();
 
