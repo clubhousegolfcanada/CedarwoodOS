@@ -89,3 +89,7 @@ Icon?
 Icon
 *.log
 logs/
+
+# Temporary files
+files.zip
+files/

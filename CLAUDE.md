@@ -1,136 +1,161 @@
-## PROJECT CONTEXT
-- **What**: Facility management system for Clubhouse 24/7 (golf simulators, pickleball courts, gyms)
-- **Scale**: ~5,000 customers across 6 locations, 6-7 employees on operations/testing
-- **Critical**: PRODUCTION system — all commits auto-deploy to live users immediately
-- **Stack**: Next.js 15 + TypeScript + Tailwind (Vercel) | Express + PostgreSQL + Redis (Railway)
-- **AI**: OpenAI GPT-4 assistants (Emergency, Booking, Tech Support, Brand Tone) + V3-PLS pattern learning
-- **Real-time**: Messages poll 10s/60s, tickets poll 30s, patterns learn from operator responses
+# CedarwoodOS — Build Instructions
 
-## ARCHITECTURE
+## What This Is
 
-### Backend (ClubOSV1-backend/)
-- **Entry**: `src/index.ts` — server init, middleware setup, route registration
-- **Routes**: 50+ files in `src/routes/` (logic-heavy, legacy pattern)
-- **Services**: 50+ files in `src/services/` (business logic)
-- **Middleware**: 17 files in `src/middleware/` (auth, rate limiting, validation, security)
-- **Migrations**: 355+ SQL files in `src/database/migrations/`
-- **Architecture transition**: Legacy = all logic in routes. New = Controller → Service → Repository (~20% migrated, auth/health/users first)
+CedarwoodOS is a white-label business operations terminal forked from ClubOS (a golf simulator management platform). The goal is to strip all golf-specific code and branding, leaving a clean, universal business terminal that any contractor or business can use to manage operations, knowledge, documents, and team communication.
 
-### Frontend (ClubOSV1-frontend/)
-- **Entry**: `src/pages/_app.tsx` — app wrapper, auth init, service worker, PWA
-- **API client**: `src/api/http.ts` — Axios with auth interceptors, auto token refresh via `x-new-token` header
-- **State**: Zustand (`src/state/useStore.ts`) persisted + React Context (messages, theme)
-- **Auth**: JWT in localStorage, managed by `src/utils/tokenManager.ts`, protected by `src/components/auth/AuthGuard.tsx`
-- **Styling**: Tailwind + CSS custom properties, dark mode via `src/contexts/ThemeContext.tsx`
-- **PWA**: Capacitor bridge, swipe gestures, bottom sheets, keyboard detection
+The first deployment target is Cedarwood Contracting.
 
-## KEY FILE MAP
+## Architecture
 
-| Domain | Backend | Frontend |
-|--------|---------|----------|
-| **Auth** | `routes/auth.ts`, `middleware/auth.ts`, `services/AuthService.ts` | `utils/tokenManager.ts`, `components/auth/AuthGuard.tsx`, `state/useStore.ts` |
-| **Messages** | `routes/messages.ts`, `routes/openphone.ts`, `services/openphoneService.ts` | `contexts/MessagesContext.tsx`, `components/messages/` |
-| **V3-PLS** | `services/patternLearningService.ts`, `services/patternSystemService.ts`, `services/patternSafetyService.ts`, `routes/enhanced-patterns.ts` | `components/operations/patterns/` |
-| **Bookings** | `routes/bookings.ts`, `services/booking/bookingService.ts`, `services/booking/availabilityService.ts` | `components/booking/`, `pages/bookings.tsx` |
-| **Tickets** | `routes/tickets.ts` | `components/tickets/TicketCenterOptimizedV3.tsx` |
-| **Checklists** | `routes/checklists-v2-enhanced.ts`, `routes/checklists-people.ts` | `components/operations/checklists/` |
-| **AI/LLM** | `services/llm/`, `services/assistantService.ts`, `routes/ai-automations.ts` | `components/operations/ai/` |
-| **Knowledge** | `services/unifiedKnowledgeService.ts`, `routes/knowledge.ts`, `routes/knowledge-store.ts` | — |
-| **Doors** | `services/unifi*.ts`, `routes/unifi-doors.ts` | — |
-| **Remote** | `services/ninjaone.ts`, `routes/ninjaone-*.ts`, `routes/remoteActions.ts` | `components/RemoteActionsBar.tsx` |
-| **Receipts** | `services/ocr/receiptOCR.ts`, `routes/receipts.ts` | `components/receipts/` |
-| **Dashboard** | — | `components/dashboard/MessagesCardV3.tsx`, `components/dashboard/TaskList.tsx` |
+- Frontend: Next.js on Vercel
+- Backend: Express/TypeScript on Railway
+- Database: PostgreSQL on Railway
+- AI: Claude API (Anthropic) for terminal intelligence
+- Messaging: Slack integration for team communication
 
-## DATABASE (54 tables — key ones)
+This is a SEPARATE deployment from ClubOS. Separate Railway project, separate Vercel project, separate database, separate repo. ClubOS must not be affected by any changes here.
 
-**Core**: `users`, `sessions`, `blacklisted_tokens`, `system_settings`
-**Messaging**: `openphone_conversations`, `openphone_messages`, `conversation_categorization`, `response_tracking`
-**AI/Patterns**: `knowledge_patterns`, `pattern_learning_system`, `pattern_learning_config`, `pattern_embeddings`, `pattern_outcomes_tracking`, `knowledge_store`
-**Safety**: `ai_automation_features`, `ai_automation_actions`, `safety_trigger_analytics`, `topic_aware_lockouts`
-**Bookings**: `bookings`, `booking_locations`, `booking_tiers`, `booking_slots`
-**Operations**: `tickets`, `ticket_comments`, `ticket_photos`, `checklists`, `checklist_submissions`, `door_access_logs`, `operator_tasks`
-**Contractors**: `contractor_permissions`, `contractor_checklist_submissions`
-**Customer** (low priority): `club_coins`, `cc_transactions`, `achievements`, `challenges`, `badges`, `leaderboards`, `friends`, `profiles`
+---
 
-## V3-PLS PATTERN LEARNING SYSTEM
+## Phase 1: Strip and Clean
 
-**How it works**: Message received → pattern matching (regex + semantic + GPT) → confidence score → action
-- **65%+ confidence**: Auto-execute response
-- **60%+**: Suggest to operator
-- **40%+**: Queue for training
-- **Learning rates**: Success +15%, modified-but-approved +10%, failure -20%, daily decay -1%
-- **Safety**: patternSafetyService validates before any automation (financial safeguards, escalation triggers, personal data rules)
-- **Config**: `PATTERN_LEARNING_ENABLED`, `PATTERN_LEARNING_SHADOW_MODE`, threshold env vars
-- **Topic detection**: Booking, tech support, access, gift cards, hours, pricing
-- **Operator lockouts**: AI defers to operator per-topic, 1hr global cooldown after operator responds
+### KEEP — these are the core product
 
-## INTEGRATIONS
+**Frontend components:**
+- Terminal component (search box, AI/Ticket/Human toggle, Process button)
+- "+ Update" button and its form/modal (for adding knowledge to the database)
+- Receipt/document upload component (rename to "Document Upload" if labeled golf-specific)
+- Tickets page (full copy, works as-is)
+- Messages page (Slack integration)
+- Quick Links component (refactor to be configurable from a database table, not hardcoded)
+- Auth/login flow and all auth pages
+- Navigation shell (Home, Tickets, Messages, and a "More" menu)
+- My Tasks component
+- Database browser/editor (the interface that lets admins view and edit database records)
 
-| Service | Purpose | Key Files |
-|---------|---------|-----------|
-| **OpenPhone** | SMS/calls, webhook-driven messaging | `routes/openphone.ts`, `services/openphoneService.ts` |
-| **OpenAI** | 4 GPT-4 assistants + embeddings | `services/assistantService.ts`, `services/llm/` |
-| **UniFi** | Door access control (6 locations) | `services/unifi*.ts`, `routes/unifi-doors.ts` |
-| **NinjaOne** | Remote device management/scripts | `services/ninjaone.ts`, `routes/ninjaone-*.ts` |
-| **HubSpot** | CRM contact sync | `services/hubspotService.ts`, `routes/hubspot.ts` |
-| **Slack** | Notifications, two-way webhooks | `routes/slack.ts` |
-| **Sentry** | Error monitoring (both FE + BE) | `utils/sentry.ts` |
-| **Redis** | Caching, rate limiting, confirmations | `utils/cache.ts` |
-| **Skedda** | Booking iframe (default, fallback) | Frontend iframe embed |
+**Backend routes and services:**
+- AI terminal route and service (query handler that reads from database and responds)
+- Ticket CRUD routes and service
+- Receipt/document upload route and processing logic (extraction, storage)
+- Slack webhook integration (incoming and outgoing)
+- Auth routes, JWT middleware, role-based access control
+- Database browser/update routes (the + Update backend)
+- User management routes
 
-## USER ROLES
+**Database tables (keep and migrate):**
+- users and auth-related tables
+- tickets and ticket-related tables
+- receipts/documents table and related storage
+- Any tables the terminal reads from for AI responses
+- Slack configuration tables
+- Role/permission tables
 
-| Role | Access | Primary Use |
-|------|--------|-------------|
-| Admin | Full | System config, analytics, all operations |
-| Operator | Operations | Tickets, messages, patterns, checklists |
-| Support | Limited | Customer support, ClubOS Boy |
-| Customer | Portal | Profile, bookings (low priority for dev) |
-| Contractor | Checklists | Cleaning tasks, door access |
-| Kiosk | Public | ClubOS Boy interface |
+### REMOVE — golf-specific, not needed
 
-## CRITICAL RULES
+**Frontend — delete these entirely:**
+- Everything booking-related (Skedda integration, booking pages, scheduling UI, bay selection)
+- TrackMan integration pages and components
+- OpenPhone/SMS components and pages
+- HubSpot CRM components and iframes
+- UniFi door access controls and pages
+- NinjaOne remote management pages
+- ClubCoin/gamification system (points, rewards, currency UI)
+- Dynamic pricing components
+- Checklists page (unless it is generic enough to keep — use judgment)
+- Any component that references golf, simulator, bay, course, or clubhouse specifically
 
-1. **PRODUCTION** — test locally first (frontend :3001, backend :3000), then commit to deploy
-2. **Mobile-first** — all features MUST work on mobile Safari/Chrome
-3. **TypeScript** — run `npx tsc --noEmit` before committing
-4. **Versioning** — update CHANGELOG.md + README.md version number on every change
-5. **Plan first** — create .md plan file before implementing features
-6. **Reuse** — search for existing similar code before creating new files
-7. **Verify** — never guess, always check actual code/data
+**Backend — delete these entirely:**
+- Booking routes and services
+- TrackMan routes and services
+- OpenPhone/SMS routes and services
+- HubSpot routes and services
+- UniFi routes and services
+- NinjaOne routes and services
+- ClubCoin/gamification routes and services
+- Dynamic pricing routes and services
+- Pattern Learning System (V3-PLS) — defer to Phase 2
+- Any route that references golf, simulator, bay, course, or clubhouse specifically
 
-## WORKFLOW
+**Database migrations:**
+- Do NOT delete old migration files. Leave them in place for reference.
+- Create NEW migrations that drop unused tables cleanly.
+- Keep all auth, ticket, receipt/document, terminal, slack, and user tables.
 
-1. Read requirements — understand what's needed
-2. Search for existing similar implementations
-3. Create .md plan file before writing code
-4. Implement with mobile-first approach
-5. Run `npx tsc --noEmit` to verify no TypeScript errors
-6. Update CHANGELOG.md with version bump
-7. Update README.md version number to match
-8. **Commit and push immediately** — do NOT wait for the user to ask. Once implementation is complete, TypeScript passes, and CHANGELOG/README are updated, commit with a descriptive message and `git push` right away. Every completed fix or feature must be deployed. Auto-deploys to production on push.
+### REBRAND
 
-## COMMANDS
+- Replace all instances of "ClubOS" with "CedarwoodOS" in UI text, page titles, meta tags, and comments.
+- Replace all instances of "Clubhouse" or "Clubhouse 24/7" with "Cedarwood" in UI text.
+- Replace the ClubOS logo/branding with placeholder text "CedarwoodOS" (no logo asset needed yet).
+- Update terminal placeholder text from golf examples to contracting examples:
+  - Old: "power outage, equipment frozen, booking cancellation"
+  - New: "warranty claim process, material specs, safety protocols, vendor contacts"
+- Update page title from "ClubOS - Golf Simulator Management" to "CedarwoodOS - Operations Terminal"
+- Update any hardcoded color scheme if it references Clubhouse brand colors (keep the dark teal, it works universally).
 
-```bash
-cd ClubOSV1-frontend && npm run dev  # Frontend on :3001
-cd ClubOSV1-backend && npm run dev   # Backend on :3000
-npx tsc --noEmit                     # TypeScript check
-npm run build                        # Production build
-npm run db:migrate                   # Run pending migrations
-npm run db:rollback                  # Rollback last migration
-railway run npm run db:migrate       # Production migration
-railway logs                         # Production backend logs
+---
+
+## Phase 2: New Features (do NOT build yet, just be aware)
+
+These come after Phase 1 is deployed and working:
+
+- Quick Links admin table: allow the admin to add/edit/remove Quick Links through the UI instead of hardcoding them.
+- Document intelligence: when a PDF or Word doc is uploaded, the system should extract text, auto-categorize it, and add it as searchable records in the knowledge base.
+- Query logging: track what questions are asked and surface unanswered or low-confidence queries to the admin as knowledge gaps.
+- Multi-tenant architecture: one deployment serving multiple businesses with data isolation.
+- SMS integration (re-add OpenPhone or similar for businesses that want text-based queries).
+
+---
+
+## Environment Variables
+
+Create a new `.env.example` with these (values TBD for the new Railway/Vercel deployment):
+
+```
+DATABASE_URL=
+ANTHROPIC_API_KEY=
+SLACK_BOT_TOKEN=
+SLACK_SIGNING_SECRET=
+JWT_SECRET=
+NODE_ENV=production
+PORT=3001
+FRONTEND_URL=
 ```
 
-## TROUBLESHOOTING
+Remove any env vars related to: OpenPhone, HubSpot, UniFi, NinjaOne, TrackMan, Skedda, Stripe (unless Stripe is needed for future billing).
 
-| Issue | Solution |
-|-------|----------|
-| 401 errors | Check `tokenManager.ts`, localStorage `clubos_token` |
-| TypeScript errors | `npx tsc --noEmit` to see all errors |
-| Database errors | Likely needs a migration — check recent schema changes |
-| Mobile issues | Chrome DevTools device emulation |
-| Port in use | `lsof -i:3000` then `kill -9 <PID>` |
-| Module not found | `npm install` in the affected directory |
-| Webhook issues | Check OpenPhone signature verification in `routes/openphone.ts` |
+---
+
+## How to Work
+
+1. Show your work. After each major deletion or change, commit with a descriptive message.
+2. Keep a CHANGELOG.md. Log every significant change with the date.
+3. After stripping is complete, run the build for both frontend and backend. Fix any import errors or broken references caused by deletions.
+4. Test locally before deploying.
+5. Do NOT guess at file contents or functionality. Read the file first, understand what it does, then decide keep or remove.
+
+## Commit Message Format
+
+```
+strip: remove TrackMan integration routes and components
+strip: remove booking system frontend pages
+rebrand: replace ClubOS references with CedarwoodOS
+fix: resolve broken imports after OpenPhone removal
+feat: add quick_links database table
+```
+
+## Definition of Done (Phase 1)
+
+- [ ] All golf-specific code removed
+- [ ] All branding updated to CedarwoodOS
+- [ ] Terminal works: can type a question and get an AI response from the database
+- [ ] + Update works: can add knowledge through the UI
+- [ ] Document upload works: can upload a PDF or Word doc
+- [ ] Tickets page works: can create and view tickets
+- [ ] Messages/Slack integration works
+- [ ] Quick Links display (hardcoded is fine for now, configurable in Phase 2)
+- [ ] Auth works: can log in with role-based access
+- [ ] Frontend builds without errors
+- [ ] Backend builds without errors
+- [ ] CHANGELOG.md is up to date
+- [ ] Ready to deploy to new Railway + Vercel project
