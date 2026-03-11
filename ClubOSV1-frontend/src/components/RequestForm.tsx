@@ -65,8 +65,6 @@ const RequestForm: React.FC = () => {
   const [slackReplies, setSlackReplies] = useState<any[]>([]);
   const [isWaitingForReply, setIsWaitingForReply] = useState(false);
   const [lastSlackThreadTs, setLastSlackThreadTs] = useState<string | null>(null);
-  const [showAdvancedRouting, setShowAdvancedRouting] = useState(false);
-  const [showLocationSelector, setShowLocationSelector] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState('');
   const [replyText, setReplyText] = useState('');
   const [sendingReply, setSendingReply] = useState(false);
@@ -190,19 +188,7 @@ const RequestForm: React.FC = () => {
     if (preferences.defaultRoute) {
       setRoutePreference(preferences.defaultRoute);
     }
-    // Load advanced routing state
-    const savedRoutingState = localStorage.getItem('showAdvancedRouting');
-    if (savedRoutingState !== null) {
-      setShowAdvancedRouting(savedRoutingState === 'true');
-    }
   }, [preferences.defaultRoute]);
-
-  // Save advanced routing preference when it changes
-  useEffect(() => {
-    if (isMounted) {
-      localStorage.setItem('showAdvancedRouting', String(showAdvancedRouting));
-    }
-  }, [showAdvancedRouting, isMounted]);
 
   // Check for ticket query parameter and text on mount (client-side only)
   useEffect(() => {
@@ -627,8 +613,6 @@ const RequestForm: React.FC = () => {
     // Reset all state to defaults
     setRoutePreference('Auto'); // Reset to Auto route
     setSelectedLocation(''); // Clear location selection
-    setShowAdvancedRouting(false); // Close Advanced selector if open
-    setShowLocationSelector(false); // Close Location selector if open
     setSmartAssistEnabled(true); // Enable Smart Assist by default
     setPhotoAttachments([]); // Clear photo attachments
     setMediaAttachments([]); // Clear media attachments (CedarwoodOS Media Knowledge Engine)
@@ -927,146 +911,7 @@ const RequestForm: React.FC = () => {
                 </>
               )}
               
-              {/* Advanced and Location Buttons - Mobile */}
-              {smartAssistEnabled && !isTicketMode && !isKnowledgeMode && (
-                <div className="sm:hidden flex items-center gap-2 ml-2">
-                  {!showAdvancedRouting && !showLocationSelector ? (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => setShowAdvancedRouting(true)}
-                        className="text-xs text-[var(--text-secondary)] hover:text-[var(--accent)] transition-colors"
-                        style={{ fontFamily: 'Poppins, sans-serif' }}
-                        disabled={isSubmitting || demoMode}
-                      >
-                        {routePreference === 'Auto' ? 'Advanced' : routePreference.replace('&Access', '').replace('Support', '')}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setShowLocationSelector(true)}
-                        className="text-xs text-[var(--text-secondary)] hover:text-[var(--accent)] transition-colors"
-                        style={{ fontFamily: 'Poppins, sans-serif' }}
-                        disabled={isSubmitting || demoMode}
-                      >
-                        {selectedLocation || 'Location'}
-                      </button>
-                    </>
-                  ) : showAdvancedRouting ? (
-                    <button
-                      type="button"
-                      onClick={() => setShowAdvancedRouting(false)}
-                      className="text-xs text-[var(--text-primary)]"
-                    >
-                      ✕
-                    </button>
-                  ) : showLocationSelector ? (
-                    <button
-                      type="button"
-                      onClick={() => setShowLocationSelector(false)}
-                      className="text-xs text-[var(--text-primary)]"
-                    >
-                      ✕
-                    </button>
-                  ) : null}
-                </div>
-              )}
               
-              {/* Advanced and Location Buttons - Desktop */}
-              {smartAssistEnabled && !isTicketMode && !isKnowledgeMode && (
-                <div className="hidden sm:flex items-center gap-2 ml-4">
-                  {/* Advanced Button */}
-                  {!showAdvancedRouting ? (
-                    <button
-                      type="button"
-                      onClick={() => setShowAdvancedRouting(true)}
-                      className="ml-2 text-xs text-[var(--text-secondary)] hover:text-[var(--accent)] transition-colors"
-                      style={{ fontFamily: 'Poppins, sans-serif' }}
-                      disabled={isSubmitting || demoMode}
-                    >
-                      {routePreference === 'Auto' ? 'Advanced' : routePreference.replace('&Access', '').replace('Support', '')}
-                    </button>
-                  ) : (
-                    <div className="ml-2 flex items-center gap-1">
-                      <span className="text-xs text-[var(--text-muted)]">Bot:</span>
-                      <div className="flex bg-[var(--bg-tertiary)] rounded-full p-0.5">
-                        {routes.map((route, index) => (
-                          <button
-                            key={route}
-                            type="button"
-                            onClick={() => {
-                              setRoutePreference(route);
-                              setShowAdvancedRouting(false);
-                            }}
-                            className={`px-2 py-0.5 text-xs transition-all rounded-full ${
-                              routePreference === route
-                                ? 'bg-[var(--accent)] text-white'
-                                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                            }`}
-                            disabled={isSubmitting || demoMode}
-                          >
-                            {route === 'Auto' ? 'Auto' : 
-                             route === 'Emergency' ? 'Emrg' :
-                             route === 'Booking&Access' ? 'Book' :
-                             route === 'TechSupport' ? 'Tech' : 'Tone'}
-                          </button>
-                        ))}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setShowAdvancedRouting(false)}
-                        className="ml-1 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  )}
-                  
-                  {/* Location Button */}
-                  {!showLocationSelector ? (
-                    <button
-                      type="button"
-                      onClick={() => setShowLocationSelector(true)}
-                      className="text-xs text-[var(--text-secondary)] hover:text-[var(--accent)] transition-colors"
-                      style={{ fontFamily: 'Poppins, sans-serif' }}
-                      disabled={isSubmitting || demoMode}
-                    >
-                      {selectedLocation || 'Location'}
-                    </button>
-                  ) : (
-                    <div className="flex items-center gap-1">
-                      <span className="text-xs text-[var(--text-muted)]">Location:</span>
-                      <div className="flex bg-[var(--bg-tertiary)] rounded-full p-0.5">
-                        {['Bedford', 'Dartmouth', 'Bayers Lake', 'Truro', 'Stratford', 'River Oaks'].map(loc => (
-                          <button
-                            key={loc}
-                            type="button"
-                            onClick={() => {
-                              setValue('location', loc);
-                              setSelectedLocation(loc);
-                              setShowLocationSelector(false);
-                            }}
-                            className={`px-2 py-0.5 text-xs transition-all rounded-full ${
-                              selectedLocation === loc
-                                ? 'bg-[var(--accent)] text-white'
-                                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                            }`}
-                            disabled={isSubmitting || demoMode}
-                          >
-                            {loc.replace(' Lake', '')}
-                          </button>
-                        ))}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setShowLocationSelector(false)}
-                        className="ml-1 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
           </div>
 
@@ -1258,67 +1103,7 @@ const RequestForm: React.FC = () => {
             </>
           )}
 
-          {/* Route Selector for Mobile - Below toggle */}
-          {smartAssistEnabled && !isTicketMode && showAdvancedRouting && (
-            <div className="sm:hidden mb-3">
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-[var(--text-muted)]">Bot:</span>
-                <div className="flex bg-[var(--bg-tertiary)] rounded-full p-0.5 flex-1 overflow-x-auto">
-                  {routes.map((route) => (
-                    <button
-                      key={route}
-                      type="button"
-                      onClick={() => {
-                        setRoutePreference(route);
-                        setShowAdvancedRouting(false);
-                      }}
-                      className={`px-3 py-1 text-xs transition-all rounded-full whitespace-nowrap ${
-                        routePreference === route
-                          ? 'bg-[var(--accent)] text-white'
-                          : 'text-[var(--text-secondary)]'
-                      }`}
-                      disabled={isSubmitting || demoMode}
-                    >
-                      {route === 'Auto' ? 'Auto' : 
-                       route === 'Emergency' ? 'Emergency' :
-                       route === 'Booking&Access' ? 'Booking' :
-                       route === 'TechSupport' ? 'Tech' : 'Brand'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
           
-          {/* Location Selector for Mobile - Below toggle */}
-          {smartAssistEnabled && !isTicketMode && showLocationSelector && (
-            <div className="sm:hidden mb-3">
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-[var(--text-muted)]">Location:</span>
-                <div className="flex bg-[var(--bg-tertiary)] rounded-full p-0.5 flex-1 overflow-x-auto">
-                  {['Bedford', 'Dartmouth', 'Bayers Lake', 'Truro', 'Stratford', 'River Oaks'].map(loc => (
-                    <button
-                      key={loc}
-                      type="button"
-                      onClick={() => {
-                        setValue('location', loc);
-                        setSelectedLocation(loc);
-                        setShowLocationSelector(false);
-                      }}
-                      className={`px-3 py-1 text-xs transition-all rounded-full whitespace-nowrap ${
-                        selectedLocation === loc
-                          ? 'bg-[var(--accent)] text-white'
-                          : 'text-[var(--text-secondary)]'
-                      }`}
-                      disabled={isSubmitting || demoMode}
-                    >
-                      {loc === 'Bayers Lake' ? 'Bayers' : loc === 'River Oaks' ? 'River' : loc}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Toggle Options - Removed, now in header */}
 
