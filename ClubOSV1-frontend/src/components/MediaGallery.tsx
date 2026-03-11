@@ -7,12 +7,13 @@
  */
 
 import React, { useState } from 'react';
-import { X, MapPin, Clock, User, Image as ImageIcon, FileText, Search } from 'lucide-react';
+import { X, MapPin, Clock, User, Image as ImageIcon, FileText, Search, Trash2 } from 'lucide-react';
 import type { MediaSearchResult } from '@/types/request';
 
 interface MediaGalleryProps {
   results: MediaSearchResult[];
   context?: string; // optional text answer from RAG
+  onDelete?: (id: string) => void; // callback when user deletes an asset
 }
 
 // Format relative time ("3 weeks ago", "2 hours ago")
@@ -35,12 +36,26 @@ const timeAgo = (dateStr: string): string => {
   return `${Math.floor(months / 12)}y ago`;
 };
 
-const MediaGallery: React.FC<MediaGalleryProps> = ({ results, context }) => {
+const MediaGallery: React.FC<MediaGalleryProps> = ({ results, context, onDelete }) => {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [localResults, setLocalResults] = useState<MediaSearchResult[]>(results);
 
-  if (!results || results.length === 0) return null;
+  // Sync local results when prop changes
+  React.useEffect(() => {
+    setLocalResults(results);
+  }, [results]);
 
-  const hasPartialOnly = results.every(r => r.isPartialMatch);
+  if (!localResults || localResults.length === 0) return null;
+
+  const hasPartialOnly = localResults.every(r => r.isPartialMatch);
+
+  // Handle delete: remove from local state, close lightbox if needed, call parent
+  const handleDelete = (id: string) => {
+    const newResults = localResults.filter(r => r.id !== id);
+    setLocalResults(newResults);
+    setLightboxIndex(null);
+    if (onDelete) onDelete(id);
+  };
 
   return (
     <div className="space-y-3">
@@ -58,13 +73,13 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ results, context }) => {
           {hasPartialOnly ? 'Related Media' : 'Media Results'}
         </span>
         <span className="text-xs text-[var(--text-muted)]">
-          ({results.length})
+          ({localResults.length})
         </span>
       </div>
 
       {/* Horizontal card row */}
       <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-thin">
-        {results.map((result, index) => (
+        {localResults.map((result, index) => (
           <button
             key={result.id}
             type="button"
@@ -124,12 +139,13 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ results, context }) => {
       </div>
 
       {/* Lightbox Modal */}
-      {lightboxIndex !== null && results[lightboxIndex] && (
+      {lightboxIndex !== null && localResults[lightboxIndex] && (
         <LightboxModal
-          result={results[lightboxIndex]}
+          result={localResults[lightboxIndex]}
           onClose={() => setLightboxIndex(null)}
           onPrev={lightboxIndex > 0 ? () => setLightboxIndex(lightboxIndex - 1) : undefined}
-          onNext={lightboxIndex < results.length - 1 ? () => setLightboxIndex(lightboxIndex + 1) : undefined}
+          onNext={lightboxIndex < localResults.length - 1 ? () => setLightboxIndex(lightboxIndex + 1) : undefined}
+          onDelete={onDelete ? () => handleDelete(localResults[lightboxIndex].id) : undefined}
         />
       )}
     </div>
@@ -143,11 +159,14 @@ interface LightboxModalProps {
   onClose: () => void;
   onPrev?: () => void;
   onNext?: () => void;
+  onDelete?: () => void;
 }
 
-const LightboxModal: React.FC<LightboxModalProps> = ({ result, onClose, onPrev, onNext }) => {
+const LightboxModal: React.FC<LightboxModalProps> = ({ result, onClose, onPrev, onNext, onDelete }) => {
   const [fullResUrl, setFullResUrl] = React.useState<string | null>(null);
   const [loadingFullRes, setLoadingFullRes] = React.useState(false);
+  const [confirmDelete, setConfirmDelete] = React.useState(false);
+  const [deleting, setDeleting] = React.useState(false);
 
   // Fetch full-resolution image when lightbox opens
   React.useEffect(() => {
@@ -185,6 +204,20 @@ const LightboxModal: React.FC<LightboxModalProps> = ({ result, onClose, onPrev, 
     document.addEventListener('keydown', handleKey);
     return () => document.removeEventListener('keydown', handleKey);
   }, [onClose, onPrev, onNext]);
+
+  // Handle delete with API call
+  const handleDeleteConfirm = async () => {
+    setDeleting(true);
+    try {
+      const { http } = require('@/api/http');
+      await http.delete(`media/${result.id}`);
+      if (onDelete) onDelete();
+    } catch (err: any) {
+      console.error('[MediaGallery] Delete failed:', err?.message);
+      setDeleting(false);
+      setConfirmDelete(false);
+    }
+  };
 
   return (
     <div
@@ -282,14 +315,50 @@ const LightboxModal: React.FC<LightboxModalProps> = ({ result, onClose, onPrev, 
             </span>
           </div>
 
-          {/* Attribution footer */}
-          <div className="flex items-center gap-1.5 text-xs text-[var(--text-muted)] pt-2 border-t border-[var(--border-secondary)]">
-            <User className="w-3 h-3" />
-            <span>
-              Uploaded by <strong className="text-[var(--text-secondary)]">{result.uploaderName}</strong>
-              {' \u00B7 '}
-              {timeAgo(result.createdAt)}
-            </span>
+          {/* Attribution footer + delete */}
+          <div className="flex items-center justify-between pt-2 border-t border-[var(--border-secondary)]">
+            <div className="flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
+              <User className="w-3 h-3" />
+              <span>
+                Uploaded by <strong className="text-[var(--text-secondary)]">{result.uploaderName}</strong>
+                {' \u00B7 '}
+                {timeAgo(result.createdAt)}
+              </span>
+            </div>
+
+            {/* Delete button */}
+            {onDelete && (
+              <div className="flex items-center gap-2">
+                {confirmDelete ? (
+                  <>
+                    <span className="text-xs text-red-400">Delete permanently?</span>
+                    <button
+                      onClick={handleDeleteConfirm}
+                      disabled={deleting}
+                      className="px-2 py-1 text-xs font-medium text-white bg-red-500 rounded hover:bg-red-600 transition-colors disabled:opacity-50"
+                    >
+                      {deleting ? 'Deleting...' : 'Yes, delete'}
+                    </button>
+                    <button
+                      onClick={() => setConfirmDelete(false)}
+                      disabled={deleting}
+                      className="px-2 py-1 text-xs font-medium text-[var(--text-muted)] bg-[var(--bg-tertiary)] rounded hover:bg-[var(--bg-secondary)] transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => setConfirmDelete(true)}
+                    className="flex items-center gap-1 px-2 py-1 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded transition-colors"
+                    title="Delete this asset"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    Delete
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

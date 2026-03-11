@@ -13,6 +13,7 @@ import { adminOrOperator } from '../middleware/roleGuard';
 import { mediaAssetService } from '../services/mediaAssetService';
 import { mediaSearchService } from '../services/mediaSearchService';
 import { logger } from '../utils/logger';
+import { db } from '../utils/database';
 
 const router = express.Router();
 
@@ -183,6 +184,25 @@ router.get('/:id/file', authenticate, async (req: any, res) => {
   } catch (error: any) {
     logger.error('[MediaAPI] Get file failed:', error);
     res.status(500).json({ error: 'Failed to get file', message: error.message });
+  }
+});
+
+// ─── DELETE /:id — Remove a media asset from the knowledge base ──────────────
+
+router.delete('/:id', authenticate, adminOrOperator, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    const result = await db.query('DELETE FROM media_assets WHERE id = $1 RETURNING id', [id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Asset not found' });
+    }
+
+    logger.info(`[MediaAPI] Deleted asset ${id} by ${req.user?.email}`);
+    res.json({ success: true, deleted: id });
+  } catch (error: any) {
+    logger.error('[MediaAPI] Delete failed:', error);
+    res.status(500).json({ error: 'Failed to delete asset', message: error.message });
   }
 });
 

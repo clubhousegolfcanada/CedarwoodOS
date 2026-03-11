@@ -691,6 +691,9 @@ export const ResponseDisplaySimple: React.FC<Props> = ({ response, route, photos
                 <MediaGallery
                   results={mediaResults}
                   context={displayText || undefined}
+                  onDelete={(id: string) => {
+                    toast.success('Media asset deleted');
+                  }}
                 />
               </div>
             )}
