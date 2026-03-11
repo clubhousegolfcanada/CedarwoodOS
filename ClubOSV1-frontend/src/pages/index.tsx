@@ -3,7 +3,6 @@ import DatabaseExternalTools from '@/components/DatabaseExternalTools';
 import { useEffect, useState } from 'react';
 import { useAuthState } from '@/state/useStore';
 import { useRouter } from 'next/router';
-import { SuggestedActions } from '@/components/dashboard/SuggestedActions';
 import { CommandShortcutBar } from '@/components/dashboard/CommandShortcutBar';
 import { TaskList } from '@/components/dashboard/TaskList';
 import { DashboardErrorBoundary, SectionErrorBoundary } from '@/components/SectionErrorBoundary';
@@ -55,9 +54,6 @@ export default function Home() {
             <div className="lg:col-span-4">
               <SectionErrorBoundary section="Quick Links">
                 <DatabaseExternalTools quickStats={[]} />
-              </SectionErrorBoundary>
-              <SectionErrorBoundary section="Suggested Actions">
-                <SuggestedActions />
               </SectionErrorBoundary>
             </div>
           </div>
